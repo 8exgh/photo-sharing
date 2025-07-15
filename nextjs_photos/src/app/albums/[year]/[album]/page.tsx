@@ -95,12 +95,12 @@ export default function AlbumView() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <Link
             href="/albums"
-            className="text-blue-600 hover:text-blue-800 mb-4 inline-flex items-center"
+            className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
           >
             <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -108,19 +108,19 @@ export default function AlbumView() {
             Back to Albums
           </Link>
           
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">
             {album.metadata.name}
           </h1>
           
           {album.metadata.location && (
-            <p className="text-gray-600 mb-2">📍 {album.metadata.location}</p>
+            <p className="text-slate-300 mb-2">📍 {album.metadata.location}</p>
           )}
           
           {album.metadata.description && (
-            <p className="text-gray-600 mb-4">{album.metadata.description}</p>
+            <p className="text-slate-300 mb-4">{album.metadata.description}</p>
           )}
           
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-slate-400">
             Created: {new Date(album.metadata.created).toLocaleDateString()}
           </p>
         </div>
@@ -131,7 +131,7 @@ export default function AlbumView() {
             {album.photos.map((photo, index) => (
               <div
                 key={photo}
-                className="relative aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow duration-300"
+                className="relative aspect-square bg-slate-600 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg hover:bg-slate-500 transition-all duration-300"
                 onClick={() => openPhotoModal(photo)}
               >
                 <Image
@@ -146,27 +146,27 @@ export default function AlbumView() {
           </div>
         ) : (
           <div className="text-center py-12">
-            <div className="text-gray-500">No photos in this album yet</div>
+            <div className="text-slate-400">No photos in this album yet</div>
           </div>
         )}
 
         {/* Videos Section */}
         {album.metadata.videos.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Videos</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {album.metadata.videos.map((video, index) => (
-                <div key={index} className="bg-white rounded-lg shadow-md p-4">
-                  <h3 className="font-semibold mb-2">{video.title}</h3>
+                <div key={index} className="bg-slate-700 rounded-lg shadow-md p-4">
+                  <h3 className="font-semibold mb-2 text-slate-100">{video.title}</h3>
                   <a
                     href={video.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-400 hover:text-blue-300"
                   >
                     Watch Video →
                   </a>
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-slate-400 mt-2">
                     Added: {new Date(video.addedDate).toLocaleDateString()}
                   </p>
                 </div>
@@ -181,7 +181,7 @@ export default function AlbumView() {
             <div className="relative max-w-4xl max-h-full p-4">
               <button
                 onClick={closePhotoModal}
-                className="absolute top-2 right-2 text-white hover:text-gray-300 z-10"
+                className="absolute top-2 right-2 text-white hover:text-slate-300 z-10"
               >
                 <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -201,7 +201,7 @@ export default function AlbumView() {
               <div className="flex justify-between items-center mt-4">
                 <button
                   onClick={() => navigatePhoto('prev')}
-                  className="text-white hover:text-gray-300"
+                  className="text-white hover:text-slate-300"
                 >
                   <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -214,7 +214,7 @@ export default function AlbumView() {
                 
                 <button
                   onClick={() => navigatePhoto('next')}
-                  className="text-white hover:text-gray-300"
+                  className="text-white hover:text-slate-300"
                 >
                   <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

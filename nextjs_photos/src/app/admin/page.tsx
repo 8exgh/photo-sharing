@@ -224,10 +224,10 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-100">Admin Dashboard</h1>
           <button
             onClick={handleLogout}
             className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
@@ -238,7 +238,7 @@ export default function AdminDashboard() {
 
         {message && (
           <div className={`mb-4 p-4 rounded-md ${
-            message.includes('successfully') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            message.includes('successfully') ? 'bg-emerald-900 text-emerald-100 border border-emerald-700' : 'bg-red-900 text-red-100 border border-red-700'
           }`}>
             {message}
           </div>
@@ -247,9 +247,9 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Albums Section */}
           <div className="lg:col-span-2">
-            <div className="bg-white shadow rounded-lg p-6">
+            <div className="bg-slate-700 shadow rounded-lg p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold">Albums</h2>
+                <h2 className="text-xl font-semibold text-slate-100">Albums</h2>
                 <button
                   onClick={() => setShowCreateForm(!showCreateForm)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
@@ -259,10 +259,10 @@ export default function AdminDashboard() {
               </div>
 
               {showCreateForm && (
-                <form onSubmit={handleCreateAlbum} className="mb-6 p-4 border rounded-md">
+                <form onSubmit={handleCreateAlbum} className="mb-6 p-4 border border-slate-600 rounded-md bg-slate-800">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
                         Album Name
                       </label>
                       <input
@@ -270,11 +270,11 @@ export default function AdminDashboard() {
                         required
                         value={newAlbum.name}
                         onChange={(e) => setNewAlbum({ ...newAlbum, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
                         Year
                       </label>
                       <input
@@ -282,29 +282,29 @@ export default function AdminDashboard() {
                         required
                         value={newAlbum.year}
                         onChange={(e) => setNewAlbum({ ...newAlbum, year: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
                         Location
                       </label>
                       <input
                         type="text"
                         value={newAlbum.location}
                         onChange={(e) => setNewAlbum({ ...newAlbum, location: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
                         Description
                       </label>
                       <input
                         type="text"
                         value={newAlbum.description}
                         onChange={(e) => setNewAlbum({ ...newAlbum, description: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                       />
                     </div>
                   </div>
@@ -312,7 +312,7 @@ export default function AdminDashboard() {
                     <button
                       type="button"
                       onClick={() => setShowCreateForm(false)}
-                      className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                      className="px-4 py-2 text-slate-300 bg-slate-600 rounded-md hover:bg-slate-500"
                     >
                       Cancel
                     </button>
@@ -331,7 +331,7 @@ export default function AdminDashboard() {
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                 >
                   <option value="">Select Year</option>
                   {years.map((year) => (
@@ -344,26 +344,26 @@ export default function AdminDashboard() {
 
               <div className="space-y-4">
                 {albums.map((album) => (
-                  <div key={album.path} className="border rounded-md p-4">
-                    <h3 className="font-semibold text-lg">
+                  <div key={album.path} className="border border-slate-600 rounded-md p-4 bg-slate-800">
+                    <h3 className="font-semibold text-lg text-slate-100">
                       {album.metadata?.name || album.name}
                     </h3>
-                    <p className="text-gray-600">{album.metadata?.location}</p>
-                    <p className="text-gray-600">{album.metadata?.description}</p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-slate-300">{album.metadata?.location}</p>
+                    <p className="text-slate-300">{album.metadata?.description}</p>
+                    <p className="text-sm text-slate-400">
                       Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
                     </p>
                     <div className="mt-2 space-x-2">
                       <button
                         onClick={() => handleUploadPhotos(selectedYear, album.name)}
                         disabled={uploadingFiles[`${selectedYear}/${album.name}`]}
-                        className="text-blue-600 hover:text-blue-800 text-sm disabled:opacity-50"
+                        className="text-blue-400 hover:text-blue-300 text-sm disabled:opacity-50"
                       >
                         {uploadingFiles[`${selectedYear}/${album.name}`] ? 'Uploading...' : 'Upload Photos'}
                       </button>
                       <button
                         onClick={() => handleAddVideo(selectedYear, album.name)}
-                        className="text-green-600 hover:text-green-800 text-sm"
+                        className="text-emerald-400 hover:text-emerald-300 text-sm"
                       >
                         Add Video
                       </button>
@@ -376,13 +376,13 @@ export default function AdminDashboard() {
 
           {/* Access Keys Section */}
           <div>
-            <div className="bg-white shadow rounded-lg p-6">
+            <div className="bg-slate-700 shadow rounded-lg p-6">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold">Access Keys</h2>
+                <h2 className="text-xl font-semibold text-slate-100">Access Keys</h2>
                 <button
                   onClick={handleCreateAccessKey}
                   disabled={loading}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50"
                 >
                   Generate Key
                 </button>
@@ -390,12 +390,12 @@ export default function AdminDashboard() {
 
               <div className="space-y-4">
                 {accessKeys.map((key, index) => (
-                  <div key={index} className="border rounded-md p-4">
-                    <div className="font-mono text-sm break-all">{key.key}</div>
-                    <div className="text-sm text-gray-500 mt-1">
+                  <div key={index} className="border border-slate-600 rounded-md p-4 bg-slate-800">
+                    <div className="font-mono text-sm break-all text-slate-200">{key.key}</div>
+                    <div className="text-sm text-slate-400 mt-1">
                       Created: {new Date(key.created).toLocaleDateString()}
                     </div>
-                    <div className="text-sm text-blue-600 mt-2">
+                    <div className="text-sm text-blue-400 mt-2">
                       <a
                         href={`/albums?key=${key.key}`}
                         target="_blank"

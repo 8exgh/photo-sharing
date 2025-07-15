@@ -64,11 +64,11 @@ export default function Albums() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Photo Albums</h1>
-          <div className="flex items-center text-sm text-green-600">
+          <h1 className="text-3xl font-bold text-slate-100 mb-2">Photo Albums</h1>
+          <div className="flex items-center text-sm text-emerald-400">
             <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
@@ -77,14 +77,14 @@ export default function Albums() {
         </div>
 
         <div className="mb-6">
-          <label htmlFor="year-select" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="year-select" className="block text-sm font-medium text-slate-300 mb-2">
             Select Year
           </label>
           <select
             id="year-select"
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
           >
             <option value="">Select Year</option>
             {years.map((year) => (
@@ -101,28 +101,28 @@ export default function Albums() {
               <Link
                 key={album.path}
                 href={`/albums/${selectedYear}/${album.name}`}
-                className="block bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+                className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300"
               >
-                <div className="h-48 bg-gray-200 flex items-center justify-center">
-                  <svg className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="h-48 bg-slate-600 flex items-center justify-center">
+                  <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-slate-100 mb-2">
                     {album.metadata?.name || album.name}
                   </h3>
                   {album.metadata?.location && (
-                    <p className="text-sm text-gray-600 mb-1">
+                    <p className="text-sm text-slate-300 mb-1">
                       📍 {album.metadata.location}
                     </p>
                   )}
                   {album.metadata?.description && (
-                    <p className="text-sm text-gray-600 mb-2">
+                    <p className="text-sm text-slate-300 mb-2">
                       {album.metadata.description}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-400">
                     Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
                   </p>
                 </div>
@@ -133,7 +133,7 @@ export default function Albums() {
 
         {selectedYear && albums.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-gray-500">No albums found for {selectedYear}</div>
+            <div className="text-slate-400">No albums found for {selectedYear}</div>
           </div>
         )}
       </div>
