@@ -135,7 +135,7 @@ export default function AlbumView() {
                 onClick={() => openPhotoModal(photo)}
               >
                 <Image
-                  src={`/albums/${album.albumPath}/thumbnails/${photo}`}
+                  src={`/api/thumbnails/${album.albumPath}/${photo}`}
                   alt={`Photo ${index + 1}`}
                   fill
                   className="object-cover"
@@ -190,7 +190,7 @@ export default function AlbumView() {
               
               <div className="relative">
                 <Image
-                  src={`/albums/${album.albumPath}/${selectedPhoto}`}
+                  src={`/api/images/${album.albumPath}/${selectedPhoto}`}
                   alt="Full size photo"
                   width={800}
                   height={600}
