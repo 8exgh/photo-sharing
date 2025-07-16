@@ -1,0 +1,39 @@
+{
+  "name": "Banff4",
+  "location": "banff",
+  "description": "banff photos",
+  "created": "2025-07-16T14:30:09.570Z",
+  "photos": [
+    {
+      "filename": "1752676220153-GI-gondola-winter.jpg",
+      "title": "GI-gondola-winter",
+      "uploadDate": "2025-07-16T14:30:20.165Z",
+      "description": ""
+    },
+    {
+      "filename": "1752676220186-Document.jpeg",
+      "title": "Document",
+      "uploadDate": "2025-07-16T14:30:20.194Z",
+      "description": ""
+    },
+    {
+      "filename": "1752676220225-banff-national-park.jpg",
+      "title": "banff-national-park",
+      "uploadDate": "2025-07-16T14:30:20.231Z",
+      "description": ""
+    },
+    {
+      "filename": "1752676220249-Banff-Ave-and-Town-in-Winter-1140x530.webp",
+      "title": "Banff-Ave-and-Town-in-Winter-1140x530",
+      "uploadDate": "2025-07-16T14:30:20.257Z",
+      "description": ""
+    },
+    {
+      "filename": "1752676220277-moraine_lake_shuttle_service.2200x1170.webp",
+      "title": "moraine_lake_shuttle_service.2200x1170",
+      "uploadDate": "2025-07-16T14:30:20.305Z",
+      "description": ""
+    }
+  ],
+  "videos": []
+}

@@ -39,7 +39,7 @@ export async function getAlbumMetadata(albumPath: string): Promise<AlbumMetadata
   }
 }
 
-export async function getAlbumsByYear(year: string): Promise<{ name: string; path: string; metadata: AlbumMetadata | null }[]> {
+export async function getAlbumsByYear(year: string): Promise<{ name: string; path: string; metadata: AlbumMetadata | null; firstPhoto: string | null }[]> {
   try {
     const yearPath = join(ALBUMS_DIR, year);
     const albums = await fs.readdir(yearPath);
@@ -51,17 +51,21 @@ export async function getAlbumsByYear(year: string): Promise<{ name: string; pat
         
         if (stats.isDirectory()) {
           const metadata = await getAlbumMetadata(albumPath);
+          const photos = await getAlbumPhotos(albumPath);
+          const firstPhoto = photos.length > 0 ? photos[0] : null;
+          
           return {
             name: albumName,
             path: albumPath,
             metadata,
+            firstPhoto,
           };
         }
         return null;
       })
     );
     
-    return albumsWithMetadata.filter(Boolean) as { name: string; path: string; metadata: AlbumMetadata | null }[];
+    return albumsWithMetadata.filter(Boolean) as { name: string; path: string; metadata: AlbumMetadata | null; firstPhoto: string | null }[];
   } catch (error) {
     return [];
   }

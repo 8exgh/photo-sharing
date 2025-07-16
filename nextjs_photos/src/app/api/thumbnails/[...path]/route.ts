@@ -63,6 +63,7 @@ export async function GET(
       }
 
       // Return the image with appropriate headers
+      console.log(`Serving thumbnail: ${filename}, size: ${imageBuffer.length}, type: ${contentType}`);
       return new NextResponse(imageBuffer, {
         status: 200,
         headers: {

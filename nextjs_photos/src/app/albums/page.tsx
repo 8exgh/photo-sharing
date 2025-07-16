@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface Album {
   name: string;
@@ -11,7 +12,19 @@ interface Album {
     location: string;
     description: string;
     created: string;
+    photos: Array<{
+      filename: string;
+      title: string;
+      uploadDate: string;
+      description: string;
+    }>;
+    videos: Array<{
+      url: string;
+      title: string;
+      addedDate: string;
+    }>;
   } | null;
+  firstPhoto: string | null;
 }
 
 export default function Albums() {
@@ -47,8 +60,11 @@ export default function Albums() {
 
   const fetchAlbums = async (year: string) => {
     try {
+      console.log('Fetching albums for year:', year);
       const response = await fetch(`/api/albums?year=${year}`);
+      console.log('Albums response status:', response.status);
       const data = await response.json();
+      console.log('Albums data received:', data);
       setAlbums(data.albums || []);
     } catch (error) {
       console.error('Error fetching albums:', error);
@@ -62,6 +78,7 @@ export default function Albums() {
       </div>
     );
   }
+console.log(`***1`, albums);
 
   return (
     <div className="min-h-screen bg-slate-800 py-8">
@@ -103,10 +120,68 @@ export default function Albums() {
                 href={`/albums/${selectedYear}/${album.name}`}
                 className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300"
               >
-                <div className="h-48 bg-slate-600 flex items-center justify-center">
-                  <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                <div 
+                  className="h-48 bg-slate-600 relative overflow-hidden"
+                  ref={(el) => {
+                    if (el) {
+                      console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
+                      console.log('Container position:', window.getComputedStyle(el).position);
+                    }
+                  }}
+                >
+                  {album.firstPhoto ? (
+                    <div className="h-full w-full">
+                      {/* Next.js Image component */}
+                      <Image
+                        src={`/api/thumbnails/${selectedYear}/${album.name}/${album.firstPhoto}`}
+                        alt={`${album.metadata?.name || album.name} preview`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        unoptimized
+                        onError={(e) => {
+                          console.error('Next.js Image error:', e);
+                          console.error('Failed src:', e.currentTarget.src);
+                        }}
+                        onLoad={(e) => {
+                          console.log('Next.js Image loaded:', e.currentTarget.src);
+                          console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                        }}
+                        onLoadingComplete={(result) => {
+                          console.log('Next.js Image loading complete:', result);
+                        }}
+                      />
+                      {/* Regular img tag for comparison */}
+                      <img
+                        src={`/api/thumbnails/${selectedYear}/${album.name}/${album.firstPhoto}`}
+                        alt={`${album.metadata?.name || album.name} preview (regular img)`}
+                        className="absolute top-0 left-0 w-full h-full object-cover opacity-50 z-10"
+                        onError={(e) => {
+                          console.error('Regular img error:', e);
+                          console.error('Failed src:', e.currentTarget.src);
+                        }}
+                        onLoad={(e) => {
+                          console.log('Regular img loaded:', e.currentTarget.src);
+                          console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                        }}
+                      />
+                    </div>
+                  ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                  )}
+                  
+                  {/* Overlay for album info on hover */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
+                    <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
+                      <p className="text-sm font-medium truncate">
+                        {album.metadata?.photos?.length || 0} photos
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <div className="p-4">
                   <h3 className="text-lg font-semibold text-slate-100 mb-2">
