@@ -8,13 +8,15 @@
       "filename": "1752676220153-GI-gondola-winter.jpg",
       "title": "GI-gondola-winter",
       "uploadDate": "2025-07-16T14:30:20.165Z",
-      "description": ""
+      "description": "",
+      "text": "Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here \n\nSecond line\n\nGondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here "
     },
     {
       "filename": "1752676220186-Document.jpeg",
       "title": "Document",
       "uploadDate": "2025-07-16T14:30:20.194Z",
-      "description": ""
+      "description": "",
+      "text": "Gondola text goes here Gondola text goes here Gondola text goes here Gondola text goes here "
     },
     {
       "filename": "1752676220225-banff-national-park.jpg",
@@ -35,5 +37,6 @@
       "description": ""
     }
   ],
-  "videos": []
+  "videos": [],
+  "text": "Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here \n\nSecond line\n\nBanff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here Banff album text goes here "
 }

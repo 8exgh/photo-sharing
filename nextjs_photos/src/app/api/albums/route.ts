@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       name,
       location: location || '',
       description: description || '',
+      text: '', // Initialize text field
       created: new Date().toISOString(),
       photos: [],
       videos: [],

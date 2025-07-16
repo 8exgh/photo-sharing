@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 interface Album {
   name: string;
@@ -10,6 +11,7 @@ interface Album {
     name: string;
     location: string;
     description: string;
+    text?: string;
     created: string;
   } | null;
 }
@@ -24,6 +26,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
+  const [editingAlbumText, setEditingAlbumText] = useState<string | null>(null);
+  const [albumText, setAlbumText] = useState<string>('');
   const router = useRouter();
 
   const [newAlbum, setNewAlbum] = useState({
@@ -214,6 +218,44 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleEditAlbumText = async (year: string, albumName: string, currentText: string) => {
+    setEditingAlbumText(`${year}/${albumName}`);
+    setAlbumText(currentText || '');
+  };
+
+  const handleSaveAlbumText = async (year: string, albumName: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/albums/${year}/${albumName}/text`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: albumText }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Album text updated successfully!');
+        setEditingAlbumText(null);
+        if (selectedYear === year) {
+          fetchAlbums(selectedYear);
+        }
+      } else {
+        setMessage(data.error || 'Failed to update album text');
+      }
+    } catch (error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEditAlbumText = () => {
+    setEditingAlbumText(null);
+    setAlbumText('');
+  };
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -353,6 +395,48 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-400">
                       Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
                     </p>
+                    
+                    {/* Album Text Section */}
+                    {editingAlbumText === `${selectedYear}/${album.name}` ? (
+                      <div className="mt-4 p-3 border border-slate-600 rounded-md bg-slate-700">
+                        <label className="block text-sm font-medium text-slate-300 mb-2">
+                          Album Text
+                        </label>
+                        <textarea
+                          value={albumText}
+                          onChange={(e) => setAlbumText(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100 resize-vertical"
+                          rows={6}
+                          placeholder="Enter multi-line album text..."
+                        />
+                        <div className="flex justify-end space-x-2 mt-2">
+                          <button
+                            onClick={handleCancelEditAlbumText}
+                            className="px-3 py-1 text-sm text-slate-300 bg-slate-600 rounded hover:bg-slate-500"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => handleSaveAlbumText(selectedYear, album.name)}
+                            disabled={loading}
+                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {loading ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4">
+                        {album.metadata?.text && (
+                          <div className="mb-2 p-2 border border-slate-600 rounded bg-slate-800">
+                            <p className="text-sm text-slate-300 whitespace-pre-wrap">
+                              {album.metadata.text}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="mt-2 space-x-2">
                       <button
                         onClick={() => handleUploadPhotos(selectedYear, album.name)}
@@ -367,6 +451,18 @@ export default function AdminDashboard() {
                       >
                         Add Video
                       </button>
+                      <button
+                        onClick={() => handleEditAlbumText(selectedYear, album.name, album.metadata?.text || '')}
+                        className="text-yellow-400 hover:text-yellow-300 text-sm"
+                      >
+                        Edit Text
+                      </button>
+                      <Link
+                        href={`/admin/albums/${selectedYear}/${album.name}`}
+                        className="text-purple-400 hover:text-purple-300 text-sm"
+                      >
+                        Manage Content
+                      </Link>
                     </div>
                   </div>
                 ))}

@@ -35,6 +35,7 @@ export async function POST(
       url,
       title,
       addedDate: new Date().toISOString(),
+      text: '', // Initialize text field
     };
 
     const updatedMetadata = {

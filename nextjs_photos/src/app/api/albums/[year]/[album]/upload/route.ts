@@ -76,6 +76,7 @@ export async function POST(
       title: originalName.replace(/\.[^/.]+$/, ''), // Remove extension
       uploadDate: new Date().toISOString(),
       description: '',
+      text: '', // Initialize text field
     };
 
     const updatedMetadata = {

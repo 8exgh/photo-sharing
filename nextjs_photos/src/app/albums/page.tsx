@@ -78,7 +78,6 @@ export default function Albums() {
       </div>
     );
   }
-console.log(`***1`, albums);
 
   return (
     <div className="min-h-screen bg-slate-800 py-8">
