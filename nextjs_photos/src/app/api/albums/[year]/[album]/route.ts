@@ -39,6 +39,8 @@ export async function GET(
       metadata,
       photos,
       albumPath: targetAlbum.path.split('public/albums/')[1],
+      groupId: targetAlbum.groupId,
+      isNested: targetAlbum.isNested,
     });
   } catch (error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

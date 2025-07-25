@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { GroupMetadata, AlbumWithGroup } from '@/types';
@@ -31,6 +32,8 @@ interface Album {
 }
 
 export default function Albums() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -53,7 +56,12 @@ export default function Albums() {
       const response = await fetch('/api/albums');
       const data = await response.json();
       setYears(data.years || []);
-      if (data.years && data.years.length > 0) {
+      
+      // Set initial year from URL parameter or default to first available year
+      const yearFromUrl = searchParams.get('year');
+      if (yearFromUrl && data.years && data.years.includes(yearFromUrl)) {
+        setSelectedYear(yearFromUrl);
+      } else if (data.years && data.years.length > 0) {
         setSelectedYear(data.years[0]);
       }
     } catch (error) {
@@ -84,6 +92,16 @@ export default function Albums() {
     } catch (error) {
       console.error('Error fetching groups:', error);
     }
+  };
+
+  const handleYearChange = (year: string) => {
+    setSelectedYear(year);
+    // Update URL with year parameter
+    const params = new URLSearchParams();
+    if (year) {
+      params.set('year', year);
+    }
+    router.replace(`/albums?${params.toString()}`);
   };
 
   // Organize albums and groups for display
@@ -158,7 +176,7 @@ export default function Albums() {
           <select
             id="year-select"
             value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
+            onChange={(e) => handleYearChange(e.target.value)}
             className="px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
           >
             <option value="">Select Year</option>

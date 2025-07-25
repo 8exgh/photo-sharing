@@ -29,6 +29,8 @@ interface AlbumData {
   };
   photos: string[];
   albumPath: string;
+  groupId?: string;
+  isNested?: boolean;
 }
 
 export default function AlbumView() {
@@ -103,6 +105,13 @@ export default function AlbumView() {
     setSelectedPhoto(album.photos[newIndex]);
   };
 
+  const getBackUrl = () => {
+    if (album?.groupId) {
+      return `/albums/${params.year}/${album.groupId}`;
+    }
+    return `/albums?year=${params.year}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -147,9 +156,9 @@ export default function AlbumView() {
           {/* Breadcrumb */}
           <div className="mb-6">
             <nav className="flex text-sm text-slate-400">
-              <Link href="/albums" className="hover:text-slate-300">Albums</Link>
+              <Link href={`/albums?year=${params.year}`} className="hover:text-slate-300">Albums</Link>
               <span className="mx-2">&gt;</span>
-              <Link href={`/albums`} className="hover:text-slate-300">{params.year}</Link>
+              <Link href={`/albums?year=${params.year}`} className="hover:text-slate-300">{params.year}</Link>
               <span className="mx-2">&gt;</span>
               <span className="text-slate-200">{groupMetadata.displayName}</span>
             </nav>
@@ -158,7 +167,7 @@ export default function AlbumView() {
           {/* Group Header */}
           <div className="mb-8">
             <Link
-              href="/albums"
+              href={`/albums?year=${params.year}`}
               className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
             >
               <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -252,13 +261,13 @@ export default function AlbumView() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <Link
-            href="/albums"
+            href={getBackUrl()}
             className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
           >
             <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Back to Albums
+            {album?.groupId ? 'Back to Group' : 'Back to Albums'}
           </Link>
           
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
