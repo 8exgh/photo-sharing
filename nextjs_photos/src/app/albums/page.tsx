@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { GroupMetadata, AlbumWithGroup } from '@/types';
 
 interface Album {
   name: string;
@@ -25,12 +26,15 @@ interface Album {
     }>;
   } | null;
   firstPhoto: string | null;
+  groupId?: string;
+  isNested?: boolean;
 }
 
 export default function Albums() {
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [groups, setGroups] = useState<GroupMetadata[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,6 +44,7 @@ export default function Albums() {
   useEffect(() => {
     if (selectedYear) {
       fetchAlbums(selectedYear);
+      fetchGroups(selectedYear);
     }
   }, [selectedYear]);
 
@@ -69,6 +74,51 @@ export default function Albums() {
     } catch (error) {
       console.error('Error fetching albums:', error);
     }
+  };
+
+  const fetchGroups = async (year: string) => {
+    try {
+      const response = await fetch(`/api/groups?year=${year}`);
+      const data = await response.json();
+      setGroups(data.groups || []);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+    }
+  };
+
+  // Organize albums and groups for display
+  const organizeContent = () => {
+    const groupedAlbums = albums.filter(album => album.groupId);
+    const ungroupedAlbums = albums.filter(album => !album.groupId);
+    
+    // Create group entries for display
+    const groupEntries = groups.map(group => ({
+      type: 'group' as const,
+      id: group.id,
+      name: group.id,
+      displayName: group.displayName,
+      isGroup: true,
+      metadata: null,
+      firstPhoto: null,
+      path: '',
+      groupId: group.id,
+    }));
+
+    // Convert ungrouped albums to display format
+    const albumEntries = ungroupedAlbums.map(album => ({
+      type: 'album' as const,
+      id: album.name,
+      name: album.name,
+      displayName: album.metadata?.name || album.name,
+      isGroup: false,
+      metadata: album.metadata,
+      firstPhoto: album.firstPhoto,
+      path: album.path,
+      groupId: album.groupId,
+      isNested: album.isNested,
+    }));
+
+    return [...groupEntries, ...albumEntries];
   };
 
   if (loading) {
@@ -113,95 +163,128 @@ export default function Albums() {
 
         {selectedYear && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {albums.map((album) => (
-              <Link
-                key={album.path}
-                href={`/albums/${selectedYear}/${album.name}`}
-                className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300"
-              >
-                <div 
-                  className="h-48 bg-slate-600 relative overflow-hidden"
-                  ref={(el) => {
-                    if (el) {
-                      console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
-                      console.log('Container position:', window.getComputedStyle(el).position);
-                    }
-                  }}
-                >
-                  {album.firstPhoto ? (
-                    <div className="h-full w-full">
-                      {/* Next.js Image component */}
-                      <Image
-                        src={`/api/thumbnails/${selectedYear}/${album.name}/${album.firstPhoto}`}
-                        alt={`${album.metadata?.name || album.name} preview`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        unoptimized
-                        onError={(e) => {
-                          console.error('Next.js Image error:', e);
-                          console.error('Failed src:', e.currentTarget.src);
-                        }}
-                        onLoad={(e) => {
-                          console.log('Next.js Image loaded:', e.currentTarget.src);
-                          console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                        }}
-                        onLoadingComplete={(result) => {
-                          console.log('Next.js Image loading complete:', result);
-                        }}
-                      />
-                      {/* Regular img tag for comparison */}
-                      <img
-                        src={`/api/thumbnails/${selectedYear}/${album.name}/${album.firstPhoto}`}
-                        alt={`${album.metadata?.name || album.name} preview (regular img)`}
-                        className="absolute top-0 left-0 w-full h-full object-cover opacity-50 z-10"
-                        onError={(e) => {
-                          console.error('Regular img error:', e);
-                          console.error('Failed src:', e.currentTarget.src);
-                        }}
-                        onLoad={(e) => {
-                          console.log('Regular img loaded:', e.currentTarget.src);
-                          console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                        }}
-                      />
-                    </div>
-                  ) : (
-                      <div className="h-full flex items-center justify-center">
-                        <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            {organizeContent().map((item) => {
+              if (item.type === 'group') {
+                return (
+                  <Link
+                    key={item.id}
+                    href={`/albums/${selectedYear}/${item.name}`}
+                    className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 border-l-4 border-l-purple-500"
+                  >
+                    <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
+                      <div className="text-center">
+                        <svg className="h-16 w-16 text-purple-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
+                        <span className="text-purple-300 font-medium">Group</span>
                       </div>
-                  )}
-                  
-                  {/* Overlay for album info on hover */}
-                  <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
-                    <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
-                      <p className="text-sm font-medium truncate">
-                        {album.metadata?.photos?.length || 0} photos
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                        {item.displayName}*
+                      </h3>
+                      <p className="text-sm text-slate-300 mb-2">
+                        Album Group
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        Click to view albums in this group
                       </p>
                     </div>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <h3 className="text-lg font-semibold text-slate-100 mb-2">
-                    {album.metadata?.name || album.name}
-                  </h3>
-                  {album.metadata?.location && (
-                    <p className="text-sm text-slate-300 mb-1">
-                      📍 {album.metadata.location}
-                    </p>
-                  )}
-                  {album.metadata?.description && (
-                    <p className="text-sm text-slate-300 mb-2">
-                      {album.metadata.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-400">
-                    Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                );
+              } else {
+                return (
+                  <Link
+                    key={item.path}
+                    href={`/albums/${selectedYear}/${item.name}`}
+                    className={`block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 ${item.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}
+                  >
+                    <div 
+                      className="h-48 bg-slate-600 relative overflow-hidden"
+                      ref={(el) => {
+                        if (el) {
+                          console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
+                          console.log('Container position:', window.getComputedStyle(el).position);
+                        }
+                      }}
+                    >
+                      {item.firstPhoto ? (
+                    <div className="h-full w-full">
+                        {/* Next.js Image component */}
+                        <Image
+                          src={`/api/thumbnails/${selectedYear}/${item.name}/${item.firstPhoto}`}
+                          alt={`${item.displayName} preview`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          unoptimized
+                          onError={(e) => {
+                            console.error('Next.js Image error:', e);
+                            console.error('Failed src:', e.currentTarget.src);
+                          }}
+                          onLoad={(e) => {
+                            console.log('Next.js Image loaded:', e.currentTarget.src);
+                            console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                          }}
+                          onLoadingComplete={(result) => {
+                            console.log('Next.js Image loading complete:', result);
+                          }}
+                        />
+                        {/* Regular img tag for comparison */}
+                        <img
+                          src={`/api/thumbnails/${selectedYear}/${item.name}/${item.firstPhoto}`}
+                          alt={`${item.displayName} preview (regular img)`}
+                          className="absolute top-0 left-0 w-full h-full object-cover opacity-50 z-10"
+                          onError={(e) => {
+                            console.error('Regular img error:', e);
+                            console.error('Failed src:', e.currentTarget.src);
+                          }}
+                          onLoad={(e) => {
+                            console.log('Regular img loaded:', e.currentTarget.src);
+                            console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                          }}
+                        />
+                    </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center">
+                          <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                      
+                      {/* Overlay for album info on hover */}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
+                        <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
+                          <p className="text-sm font-medium truncate">
+                            {item.metadata?.photos?.length || 0} photos
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                        {item.displayName}
+                        {item.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                      </h3>
+                      {item.metadata?.location && (
+                        <p className="text-sm text-slate-300 mb-1">
+                          📍 {item.metadata.location}
+                        </p>
+                      )}
+                      {item.metadata?.description && (
+                        <p className="text-sm text-slate-300 mb-2">
+                          {item.metadata.description}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-400">
+                        Created: {item.metadata?.created ? new Date(item.metadata.created).toLocaleDateString() : 'Unknown'}
+                      </p>
+                    </div>
+                  </Link>
+                );
+              }
+            })}
           </div>
         )}
 

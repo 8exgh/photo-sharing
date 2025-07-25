@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
+import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 
 export const runtime = 'nodejs';
@@ -18,9 +19,16 @@ export async function PUT(
     
     const { text } = await request.json();
     const { year, album } = await params;
-    const albumPath = join(process.cwd(), 'public', 'albums', year, album);
     
-    const existingMetadata = await getAlbumMetadata(albumPath);
+    // First, try to find the album using the group-aware function
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
+      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const existingMetadata = await getAlbumMetadata(targetAlbum.path);
     if (!existingMetadata) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
@@ -30,7 +38,7 @@ export async function PUT(
       text: text || '',
     };
     
-    await saveAlbumMetadata(albumPath, updatedMetadata);
+    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
     
     return NextResponse.json({ 
       success: true, 

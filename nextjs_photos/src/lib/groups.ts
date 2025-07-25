@@ -1,0 +1,230 @@
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { GroupMetadata, AlbumWithGroup, AlbumMetadata } from '@/types';
+import { sanitizeAlbumName, getAlbumMetadata, getAlbumPhotos } from './albums';
+
+const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
+
+export function sanitizeGroupId(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
+export async function createGroupDirectory(year: string, groupId: string): Promise<string> {
+  const groupPath = join(ALBUMS_DIR, year, groupId);
+  await fs.mkdir(groupPath, { recursive: true });
+  return groupPath;
+}
+
+export async function saveGroupMetadata(groupPath: string, metadata: GroupMetadata): Promise<void> {
+  const metadataPath = join(groupPath, 'group.json');
+  await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+}
+
+export async function getGroupMetadata(groupPath: string): Promise<GroupMetadata | null> {
+  try {
+    const metadataPath = join(groupPath, 'group.json');
+    const data = await fs.readFile(metadataPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    return null;
+  }
+}
+
+export async function updateGroupAlbumCount(groupPath: string): Promise<void> {
+  const metadata = await getGroupMetadata(groupPath);
+  if (!metadata) return;
+
+  try {
+    const items = await fs.readdir(groupPath);
+    const albumCount = await Promise.all(
+      items.map(async (item) => {
+        if (item === 'group.json') return false;
+        const itemPath = join(groupPath, item);
+        const stats = await fs.stat(itemPath);
+        return stats.isDirectory();
+      })
+    );
+    
+    metadata.albumCount = albumCount.filter(Boolean).length;
+    await saveGroupMetadata(groupPath, metadata);
+  } catch (error) {
+    console.error('Error updating group album count:', error);
+  }
+}
+
+export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
+  try {
+    const yearPath = join(ALBUMS_DIR, year);
+    const items = await fs.readdir(yearPath);
+    
+    const groups = await Promise.all(
+      items.map(async (itemName) => {
+        const itemPath = join(yearPath, itemName);
+        const stats = await fs.stat(itemPath);
+        
+        if (stats.isDirectory()) {
+          const metadata = await getGroupMetadata(itemPath);
+          if (metadata) {
+            return metadata;
+          }
+        }
+        return null;
+      })
+    );
+    
+    return groups.filter(Boolean) as GroupMetadata[];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[]> {
+  try {
+    const yearPath = join(ALBUMS_DIR, year);
+    const items = await fs.readdir(yearPath);
+    
+    const albums: AlbumWithGroup[] = [];
+    
+    for (const itemName of items) {
+      const itemPath = join(yearPath, itemName);
+      const stats = await fs.stat(itemPath);
+      
+      if (stats.isDirectory()) {
+        const groupMetadata = await getGroupMetadata(itemPath);
+        
+        if (groupMetadata) {
+          const groupAlbums = await getAlbumsInGroup(itemPath, groupMetadata.id);
+          albums.push(...groupAlbums);
+        } else {
+          const albumMetadata = await getAlbumMetadata(itemPath);
+          if (albumMetadata) {
+            const photos = await getAlbumPhotos(itemPath);
+            const firstPhoto = photos.length > 0 ? photos[0] : null;
+            
+            albums.push({
+              name: itemName,
+              path: itemPath,
+              metadata: albumMetadata,
+              firstPhoto,
+            });
+          }
+        }
+      }
+    }
+    
+    return albums;
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function getAlbumsInGroup(groupPath: string, groupId: string): Promise<AlbumWithGroup[]> {
+  try {
+    const items = await fs.readdir(groupPath);
+    const groupMetadata = await getGroupMetadata(groupPath);
+    
+    const albums = await Promise.all(
+      items.map(async (itemName) => {
+        if (itemName === 'group.json') return null;
+        
+        const itemPath = join(groupPath, itemName);
+        const stats = await fs.stat(itemPath);
+        
+        if (stats.isDirectory()) {
+          const albumMetadata = await getAlbumMetadata(itemPath);
+          if (albumMetadata) {
+            const photos = await getAlbumPhotos(itemPath);
+            const firstPhoto = photos.length > 0 ? photos[0] : null;
+            
+            const isNested = groupMetadata?.nestedAlbums?.includes(itemName) || false;
+            
+            return {
+              name: itemName,
+              path: itemPath,
+              metadata: albumMetadata,
+              firstPhoto,
+              groupId,
+              isNested,
+            };
+          }
+        }
+        return null;
+      })
+    );
+    
+    return albums.filter(Boolean) as AlbumWithGroup[];
+  } catch (error) {
+    return [];
+  }
+}
+
+export async function moveAlbumToGroup(albumPath: string, year: string, groupId?: string): Promise<string> {
+  const albumName = albumPath.split('/').pop();
+  if (!albumName) throw new Error('Invalid album path');
+  
+  let newPath: string;
+  if (groupId) {
+    const groupPath = join(ALBUMS_DIR, year, groupId);
+    await fs.mkdir(groupPath, { recursive: true });
+    newPath = join(groupPath, albumName);
+  } else {
+    newPath = join(ALBUMS_DIR, year, albumName);
+  }
+  
+  if (albumPath !== newPath) {
+    await fs.rename(albumPath, newPath);
+    
+    if (groupId) {
+      const groupPath = join(ALBUMS_DIR, year, groupId);
+      await updateGroupAlbumCount(groupPath);
+    }
+  }
+  
+  return newPath;
+}
+
+export async function deleteGroup(year: string, groupId: string): Promise<boolean> {
+  try {
+    const groupPath = join(ALBUMS_DIR, year, groupId);
+    const metadata = await getGroupMetadata(groupPath);
+    
+    if (!metadata) return false;
+    
+    if (metadata.albumCount > 0) {
+      throw new Error('Cannot delete group containing albums. Please move or delete albums first.');
+    }
+    
+    await fs.rm(groupPath, { recursive: true });
+    return true;
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function createGroup(
+  year: string,
+  groupName: string,
+  displayName: string,
+  description: string
+): Promise<GroupMetadata> {
+  const groupId = sanitizeGroupId(groupName);
+  const groupPath = await createGroupDirectory(year, groupId);
+  
+  const metadata: GroupMetadata = {
+    id: groupId,
+    displayName,
+    description,
+    created: new Date().toISOString(),
+    albumCount: 0,
+    sortOrder: groupId,
+    nestedAlbums: [],
+  };
+  
+  await saveGroupMetadata(groupPath, metadata);
+  return metadata;
+}

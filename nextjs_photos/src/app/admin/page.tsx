@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { GroupMetadata, AlbumWithGroup } from '@/types';
 
 interface Album {
   name: string;
@@ -14,12 +15,16 @@ interface Album {
     text?: string;
     created: string;
   } | null;
+  groupId?: string;
+  isNested?: boolean;
 }
 
 export default function AdminDashboard() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
+  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAccessKeyForm, setShowAccessKeyForm] = useState(false);
   const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string}>>([]);
@@ -35,6 +40,8 @@ export default function AdminDashboard() {
     year: new Date().getFullYear().toString(),
     location: '',
     description: '',
+    groupId: '',
+    datePrefix: '',
   });
 
   useEffect(() => {
@@ -45,6 +52,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (selectedYear) {
       fetchAlbums(selectedYear);
+      fetchGroups(selectedYear);
     }
   }, [selectedYear]);
 
@@ -81,6 +89,16 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchGroups = async (year: string) => {
+    try {
+      const response = await fetch(`/api/groups?year=${year}`);
+      const data = await response.json();
+      setGroups(data.groups || []);
+    } catch (error) {
+      console.error('Error fetching groups:', error);
+    }
+  };
+
   const handleCreateAlbum = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -103,6 +121,8 @@ export default function AdminDashboard() {
           year: new Date().getFullYear().toString(),
           location: '',
           description: '',
+          groupId: '',
+          datePrefix: '',
         });
         setShowCreateForm(false);
         fetchYears();
@@ -256,6 +276,36 @@ export default function AdminDashboard() {
     setAlbumText('');
   };
 
+  const handleMoveAlbum = async (albumPath: string, targetGroupId: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/albums/move', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          albumPath,
+          year: selectedYear,
+          groupId: targetGroupId || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Album moved successfully!');
+        fetchAlbums(selectedYear);
+        fetchGroups(selectedYear);
+      } else {
+        setMessage(data.error || 'Failed to move album');
+      }
+    } catch (error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -265,11 +315,26 @@ export default function AdminDashboard() {
     }
   };
 
+  // Filter albums based on selected group
+  const filteredAlbums = albums.filter(album => {
+    if (selectedGroup === 'all') return true;
+    if (selectedGroup === 'ungrouped') return !album.groupId;
+    return album.groupId === selectedGroup;
+  });
+
   return (
     <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-slate-100">Admin Dashboard</h1>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-3xl font-bold text-slate-100">Admin Dashboard</h1>
+            <Link
+              href="/admin/groups"
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
+            >
+              Manage Groups
+            </Link>
+          </div>
           <button
             onClick={handleLogout}
             className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
@@ -329,6 +394,35 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-1">
+                        Date Prefix (optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={newAlbum.datePrefix}
+                        onChange={(e) => setNewAlbum({ ...newAlbum, datePrefix: e.target.value })}
+                        placeholder="e.g., 2025-05-31"
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
+                        Group (optional)
+                      </label>
+                      <select
+                        value={newAlbum.groupId}
+                        onChange={(e) => setNewAlbum({ ...newAlbum, groupId: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
+                      >
+                        <option value="">No Group</option>
+                        {groups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">
                         Location
                       </label>
                       <input
@@ -369,7 +463,7 @@ export default function AdminDashboard() {
                 </form>
               )}
 
-              <div className="mb-4">
+              <div className="mb-4 flex space-x-4">
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
@@ -382,19 +476,60 @@ export default function AdminDashboard() {
                     </option>
                   ))}
                 </select>
+                
+                {selectedYear && (
+                  <select
+                    value={selectedGroup}
+                    onChange={(e) => setSelectedGroup(e.target.value)}
+                    className="px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
+                  >
+                    <option value="all">All Groups</option>
+                    <option value="ungrouped">Ungrouped Albums</option>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.displayName}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div className="space-y-4">
-                {albums.map((album) => (
-                  <div key={album.path} className="border border-slate-600 rounded-md p-4 bg-slate-800">
-                    <h3 className="font-semibold text-lg text-slate-100">
-                      {album.metadata?.name || album.name}
-                    </h3>
-                    <p className="text-slate-300">{album.metadata?.location}</p>
-                    <p className="text-slate-300">{album.metadata?.description}</p>
-                    <p className="text-sm text-slate-400">
-                      Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-                    </p>
+                {filteredAlbums.map((album) => (
+                  <div key={album.path} className={`border border-slate-600 rounded-md p-4 bg-slate-800 ${album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-slate-100">
+                          {album.metadata?.name || album.name}
+                          {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                        </h3>
+                        <p className="text-slate-300">{album.metadata?.location}</p>
+                        <p className="text-slate-300">{album.metadata?.description}</p>
+                        <p className="text-sm text-slate-400">
+                          Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
+                        </p>
+                        {album.groupId && (
+                          <p className="text-sm text-purple-400">
+                            Group: {groups.find(g => g.id === album.groupId)?.displayName || album.groupId}
+                          </p>
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        <select
+                          onChange={(e) => handleMoveAlbum(album.path, e.target.value)}
+                          className="px-2 py-1 text-sm border border-slate-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
+                          defaultValue={album.groupId || ''}
+                        >
+                          <option value="">Move to...</option>
+                          <option value="">No Group</option>
+                          {groups.map((group) => (
+                            <option key={group.id} value={group.id}>
+                              {group.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                     
                     {/* Album Text Section */}
                     {editingAlbumText === `${selectedYear}/${album.name}` ? (

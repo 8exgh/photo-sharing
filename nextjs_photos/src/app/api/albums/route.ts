@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { createAlbumDirectory, saveAlbumMetadata, getAllYears, getAlbumsByYear } from '@/lib/albums';
+import { createAlbumDirectory, saveAlbumMetadata, getAllYears } from '@/lib/albums';
+import { getAlbumsWithGroups, moveAlbumToGroup } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
 
 export const runtime = 'nodejs';
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
     
     if (year) {
-      const albums = await getAlbumsByYear(year);
+      const albums = await getAlbumsWithGroups(year);
       return NextResponse.json({ albums });
     } else {
       const years = await getAllYears();
@@ -36,13 +37,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, year, location, description } = await request.json();
+    const { name, year, location, description, groupId, datePrefix } = await request.json();
     
     if (!name || !year) {
       return NextResponse.json({ error: 'Name and year are required' }, { status: 400 });
     }
     
-    const albumPath = await createAlbumDirectory(year, name);
+    // Create album name with optional date prefix
+    const albumName = datePrefix ? `${datePrefix}-${name}` : name;
+    
+    let albumPath = await createAlbumDirectory(year, albumName);
+    
+    // Move to group if specified
+    if (groupId) {
+      albumPath = await moveAlbumToGroup(albumPath, year, groupId);
+    }
     
     const metadata: AlbumMetadata = {
       name,

@@ -35,5 +35,6 @@
       "description": ""
     }
   ],
-  "videos": []
+  "videos": [],
+  "text": "This is a test description after fixing the bug. The album should now be found correctly even though it's in a group."
 }

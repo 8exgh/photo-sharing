@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { GroupMetadata, AlbumWithGroup } from '@/types';
 
 interface AlbumData {
   metadata: {
@@ -33,24 +34,44 @@ interface AlbumData {
 export default function AlbumView() {
   const params = useParams();
   const [album, setAlbum] = useState<AlbumData | null>(null);
+  const [groupMetadata, setGroupMetadata] = useState<GroupMetadata | null>(null);
+  const [groupAlbums, setGroupAlbums] = useState<AlbumWithGroup[]>([]);
+  const [isGroup, setIsGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchAlbum();
+    fetchAlbumOrGroup();
   }, [params.year, params.album]);
 
-  const fetchAlbum = async () => {
+  const fetchAlbumOrGroup = async () => {
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}`);
-      const data = await response.json();
+      // First try to fetch as a group
+      const groupResponse = await fetch(`/api/groups/${params.year}/${params.album}`);
       
-      if (response.ok) {
-        setAlbum(data);
+      if (groupResponse.ok) {
+        const groupData = await groupResponse.json();
+        setGroupMetadata(groupData.group);
+        setIsGroup(true);
+        
+        // Fetch albums in this group
+        const albumsResponse = await fetch(`/api/albums?year=${params.year}`);
+        const albumsData = await albumsResponse.json();
+        const filteredAlbums = albumsData.albums.filter((album: AlbumWithGroup) => album.groupId === params.album);
+        setGroupAlbums(filteredAlbums);
       } else {
-        setError(data.error || 'Failed to load album');
+        // Try to fetch as an album
+        const albumResponse = await fetch(`/api/albums/${params.year}/${params.album}`);
+        const albumData = await albumResponse.json();
+        
+        if (albumResponse.ok) {
+          setAlbum(albumData);
+          setIsGroup(false);
+        } else {
+          setError(albumData.error || 'Album/Group not found');
+        }
       }
     } catch (error) {
       setError('Network error');
@@ -90,10 +111,124 @@ export default function AlbumView() {
     );
   }
 
-  if (error || !album) {
+  if (error || (!album && !isGroup)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-600">{error || 'Album not found'}</div>
+        <div className="text-red-600">{error || 'Album/Group not found'}</div>
+      </div>
+    );
+  }
+
+  // Render group view
+  if (isGroup && groupMetadata) {
+    return (
+      <div className="min-h-screen bg-slate-800 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Breadcrumb */}
+          <div className="mb-6">
+            <nav className="flex text-sm text-slate-400">
+              <Link href="/albums" className="hover:text-slate-300">Albums</Link>
+              <span className="mx-2">&gt;</span>
+              <Link href={`/albums`} className="hover:text-slate-300">{params.year}</Link>
+              <span className="mx-2">&gt;</span>
+              <span className="text-slate-200">{groupMetadata.displayName}</span>
+            </nav>
+          </div>
+
+          {/* Group Header */}
+          <div className="mb-8">
+            <Link
+              href="/albums"
+              className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
+            >
+              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Albums
+            </Link>
+            
+            <h1 className="text-3xl font-bold text-slate-100 mb-2">
+              {groupMetadata.displayName}
+            </h1>
+            {groupMetadata.description && (
+              <p className="text-slate-300 mb-4">{groupMetadata.description}</p>
+            )}
+            <div className="flex items-center text-sm text-emerald-400">
+              <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Secure Access - Session Active
+            </div>
+          </div>
+
+          {/* Albums Grid */}
+          {groupAlbums.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {groupAlbums.map((album) => (
+                <Link
+                  key={album.path}
+                  href={`/albums/${params.year}/${album.name}`}
+                  className={`block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 ${
+                    album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''
+                  }`}
+                >
+                  <div className="h-48 bg-slate-600 relative overflow-hidden">
+                    {album.firstPhoto ? (
+                      <div className="h-full w-full">
+                        <Image
+                          src={`/api/thumbnails/${params.year}/${album.name}/${album.firstPhoto}`}
+                          alt={`${album.metadata?.name || album.name} preview`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          unoptimized
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+                    
+                    {/* Overlay for album info on hover */}
+                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
+                      <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
+                        <p className="text-sm font-medium truncate">
+                          {album.metadata?.photos?.length || 0} photos
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                      {album.metadata?.name || album.name}
+                      {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                    </h3>
+                    {album.metadata?.location && (
+                      <p className="text-sm text-slate-300 mb-1">
+                        📍 {album.metadata.location}
+                      </p>
+                    )}
+                    {album.metadata?.description && (
+                      <p className="text-sm text-slate-300 mb-2">
+                        {album.metadata.description}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400">
+                      Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-slate-400">No albums found in this group</div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

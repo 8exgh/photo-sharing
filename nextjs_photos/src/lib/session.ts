@@ -21,3 +21,8 @@ export function generateAccessKey(): string {
   return Math.random().toString(36).substring(2, 15) + 
          Math.random().toString(36).substring(2, 15);
 }
+
+export async function validateSession(request?: Request): Promise<SessionData> {
+  const session = await getSession();
+  return session;
+}

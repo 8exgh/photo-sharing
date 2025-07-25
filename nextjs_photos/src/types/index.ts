@@ -34,3 +34,22 @@ export interface SessionData {
   isAdmin: boolean;
   accessKey?: string;
 }
+
+export interface GroupMetadata {
+  id: string;
+  displayName: string;
+  description: string;
+  created: string;
+  albumCount: number;
+  sortOrder: string;
+  nestedAlbums?: string[];
+}
+
+export interface AlbumWithGroup {
+  name: string;
+  path: string;
+  metadata: AlbumMetadata | null;
+  firstPhoto: string | null;
+  groupId?: string;
+  isNested?: boolean;
+}

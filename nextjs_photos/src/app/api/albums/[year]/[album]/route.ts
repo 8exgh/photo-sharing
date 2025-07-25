@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos } from '@/lib/albums';
+import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { AlbumMetadata } from '@/types';
 
@@ -18,9 +19,17 @@ export async function GET(
     }
     
     const { year, album } = await params;
-    const albumPath = join(process.cwd(), 'public', 'albums', year, album);
-    const metadata = await getAlbumMetadata(albumPath);
-    const photos = await getAlbumPhotos(albumPath);
+    
+    // Find the album using the group-aware function
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
+      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const metadata = await getAlbumMetadata(targetAlbum.path);
+    const photos = await getAlbumPhotos(targetAlbum.path);
     
     if (!metadata) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
@@ -29,7 +38,7 @@ export async function GET(
     return NextResponse.json({ 
       metadata,
       photos,
-      albumPath: `${year}/${album}`,
+      albumPath: targetAlbum.path.split('public/albums/')[1],
     });
   } catch (error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -49,9 +58,16 @@ export async function PUT(
     
     const { name, location, description } = await request.json();
     const { year, album } = await params;
-    const albumPath = join(process.cwd(), 'public', 'albums', year, album);
     
-    const existingMetadata = await getAlbumMetadata(albumPath);
+    // Find the album using the group-aware function
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
+      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const existingMetadata = await getAlbumMetadata(targetAlbum.path);
     if (!existingMetadata) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
@@ -63,7 +79,7 @@ export async function PUT(
       description: description !== undefined ? description : existingMetadata.description,
     };
     
-    await saveAlbumMetadata(albumPath, updatedMetadata);
+    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
     
     return NextResponse.json({ 
       success: true, 

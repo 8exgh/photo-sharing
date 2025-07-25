@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
+import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import formidable from 'formidable';
@@ -21,7 +22,16 @@ export async function POST(
     }
 
     const { year, album } = await params;
-    const albumPath = join(process.cwd(), 'public', 'albums', year, album);
+    
+    // Find the album using the group-aware function
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
+      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const albumPath = targetAlbum.path;
     const thumbnailsPath = join(albumPath, 'thumbnails');
     
     // Check if album exists
