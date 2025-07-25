@@ -172,33 +172,27 @@ export default function AlbumView() {
                     album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''
                   }`}
                 >
-                  <div className="h-48 bg-slate-600 relative overflow-hidden">
+                  <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
                     {album.firstPhoto ? (
-                      <div className="h-full w-full">
-                        <Image
-                          src={`/api/thumbnails/${params.year}/${album.name}/${album.firstPhoto}`}
-                          alt={`${album.metadata?.name || album.name} preview`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          unoptimized
-                        />
-                      </div>
+                      <img
+                        src={`/api/thumbnails/${album.path.split('public/albums/')[1]}/${album.firstPhoto}`}
+                        alt={`${album.metadata?.name || album.name} preview`}
+                        className="max-w-full max-h-full object-contain"
+                        style={{ display: 'block' }}
+                      />
                     ) : (
-                      <div className="h-full flex items-center justify-center">
+                      <div className="h-full flex items-center justify-center bg-slate-600">
                         <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
                     )}
                     
-                    {/* Overlay for album info on hover */}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
-                      <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
-                        <p className="text-sm font-medium truncate">
-                          {album.metadata?.photos?.length || 0} photos
-                        </p>
-                      </div>
+                    {/* Overlay for album info on hover - positioned to not interfere with image */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                      <p className="text-sm font-medium text-white truncate">
+                        {album.metadata?.photos?.length || 0} photos
+                      </p>
                     </div>
                   </div>
                   <div className="p-4">

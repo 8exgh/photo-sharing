@@ -22,17 +22,18 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
-    // Extract year, album, and filename from path
-    const [year, album, ...filenameParts] = path;
-    const filename = filenameParts.join('/');
+    // The path now includes all folder levels: [year, groupOrAlbum, album, filename]
+    // Or for ungrouped albums: [year, album, filename]
+    // We need to reconstruct the path dynamically
+    const filename = path[path.length - 1]; // Last element is always the filename
+    const pathWithoutFilename = path.slice(0, -1); // All elements except filename
     
     // Construct the full path to the image
     const imagePath = join(
       process.cwd(),
       'public',
       'albums',
-      year,
-      album,
+      ...pathWithoutFilename,
       filename
     );
 
