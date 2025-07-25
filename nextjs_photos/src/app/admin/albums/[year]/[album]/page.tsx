@@ -173,16 +173,29 @@ export default function AlbumContentManager() {
         </div>
 
         {message && (
-          <div className={`mb-4 p-4 rounded-md ${
-            message.includes('successfully') ? 'bg-emerald-900 text-emerald-100 border border-emerald-700' : 'bg-red-900 text-red-100 border border-red-700'
+          <div className={`fixed top-0 left-0 right-0 z-50 shadow-lg ${
+            message.includes('successfully') ? 'bg-emerald-900 text-emerald-100 border-b border-emerald-700' : 'bg-red-900 text-red-100 border-b border-red-700'
           }`}>
-            {message}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <svg className={`h-5 w-5 mr-2 ${message.includes('successfully') ? 'text-emerald-400' : 'text-red-400'}`} viewBox="0 0 20 20" fill="currentColor">
+                    {message.includes('successfully') ? (
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    ) : (
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    )}
+                  </svg>
+                  <span>{message}</span>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Photos Section */}
         {album.metadata.photos.length > 0 && (
-          <div className="mb-8">
+          <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Photos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {album.metadata.photos.map((photo, index) => (
@@ -256,7 +269,7 @@ export default function AlbumContentManager() {
 
         {/* Videos Section */}
         {album.metadata.videos.length > 0 && (
-          <div>
+          <div className={`${message ? (album.metadata.photos.length === 0 ? 'mt-20' : '') : ''}`}>
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {album.metadata.videos.map((video, index) => (
@@ -326,7 +339,7 @@ export default function AlbumContentManager() {
         )}
 
         {album.metadata.photos.length === 0 && album.metadata.videos.length === 0 && (
-          <div className="text-center py-12">
+          <div className={`text-center py-12 ${message ? 'mt-20' : ''}`}>
             <div className="text-slate-400">No photos or videos in this album yet</div>
           </div>
         )}

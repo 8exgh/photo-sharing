@@ -113,8 +113,28 @@ export default function AlbumView() {
 
   if (error || (!album && !isGroup)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-600">{error || 'Album/Group not found'}</div>
+      <div className="min-h-screen bg-slate-800">
+        {/* Fixed error banner at top */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-900 text-red-100 border-b border-red-700 shadow-lg">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center">
+              <svg className="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              <span>{error || 'Album/Group not found'}</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Page content with top padding to account for fixed banner */}
+        <div className="pt-20 flex items-center justify-center min-h-screen">
+          <div className="text-slate-400 text-center">
+            <svg className="h-16 w-16 mx-auto mb-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.87 0-5.431 1.512-6.86 3.757l1.378.378a6.002 6.002 0 0111.964 0l1.378-.378A7.962 7.962 0 0112 15z" />
+            </svg>
+            <p>The requested content could not be found.</p>
+          </div>
+        </div>
       </div>
     );
   }

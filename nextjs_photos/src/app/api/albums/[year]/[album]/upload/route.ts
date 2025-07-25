@@ -68,6 +68,14 @@ export async function POST(
     const extension = originalName.split('.').pop();
     const filename = `${timestamp}-${originalName}`;
     
+    // Ensure thumbnails directory exists
+    try {
+      await fs.access(thumbnailsPath);
+    } catch {
+      // Directory doesn't exist, create it
+      await fs.mkdir(thumbnailsPath, { recursive: true });
+    }
+
     // Save original file
     const buffer = await file.arrayBuffer();
     const filePath = join(albumPath, filename);

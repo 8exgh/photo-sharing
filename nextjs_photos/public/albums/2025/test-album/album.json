@@ -3,6 +3,28 @@
   "location": "",
   "description": "",
   "created": "2025-07-15T18:04:13.928Z",
-  "photos": [],
+  "photos": [
+    {
+      "filename": "1753455563548-banff-national-park.jpg",
+      "title": "banff-national-park",
+      "uploadDate": "2025-07-25T14:59:23.555Z",
+      "description": "",
+      "text": ""
+    },
+    {
+      "filename": "1753455563573-Banff-Ave-and-Town-in-Winter-1140x530.webp",
+      "title": "Banff-Ave-and-Town-in-Winter-1140x530",
+      "uploadDate": "2025-07-25T14:59:23.580Z",
+      "description": "",
+      "text": ""
+    },
+    {
+      "filename": "1753455563599-moraine_lake_shuttle_service.2200x1170.webp",
+      "title": "moraine_lake_shuttle_service.2200x1170",
+      "uploadDate": "2025-07-25T14:59:23.629Z",
+      "description": "",
+      "text": ""
+    }
+  ],
   "videos": []
 }
