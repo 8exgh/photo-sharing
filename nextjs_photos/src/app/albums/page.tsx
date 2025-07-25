@@ -92,17 +92,26 @@ export default function Albums() {
     const ungroupedAlbums = albums.filter(album => !album.groupId);
     
     // Create group entries for display
-    const groupEntries = groups.map(group => ({
-      type: 'group' as const,
-      id: group.id,
-      name: group.id,
-      displayName: group.displayName,
-      isGroup: true,
-      metadata: null,
-      firstPhoto: null,
-      path: '',
-      groupId: group.id,
-    }));
+    const groupEntries = groups.map(group => {
+      // Find first album in this group that has a photo
+      const groupAlbumsWithPhotos = groupedAlbums.filter(album => 
+        album.groupId === group.id && album.firstPhoto
+      );
+      const firstAlbumWithPhoto = groupAlbumsWithPhotos[0];
+      
+      return {
+        type: 'group' as const,
+        id: group.id,
+        name: group.id,
+        displayName: group.displayName,
+        isGroup: true,
+        metadata: null,
+        firstPhoto: firstAlbumWithPhoto?.firstPhoto || null,
+        firstAlbumPath: firstAlbumWithPhoto?.path || null,
+        path: '',
+        groupId: group.id,
+      };
+    });
 
     // Convert ungrouped albums to display format
     const albumEntries = ungroupedAlbums.map(album => ({
@@ -172,7 +181,17 @@ export default function Albums() {
                     className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 border-l-4 border-l-purple-500"
                   >
                     <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
-                      <div className="text-center">
+                      {/* Background image if available */}
+                      {item.firstPhoto && item.firstAlbumPath ? (
+                        <img
+                          src={`/api/thumbnails/${item.firstAlbumPath.split('public/albums/')[1]}/${item.firstPhoto}`}
+                          alt={`${item.displayName} preview`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : null}
+                      
+                      {/* Overlay with group icon */}
+                      <div className="relative z-10 text-center bg-black/50 p-4 rounded-lg">
                         <svg className="h-16 w-16 text-purple-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
@@ -199,67 +218,26 @@ export default function Albums() {
                     href={`/albums/${selectedYear}/${item.name}`}
                     className={`block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 ${item.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}
                   >
-                    <div 
-                      className="h-48 bg-slate-600 relative overflow-hidden"
-                      ref={(el) => {
-                        if (el) {
-                          console.log('Container dimensions:', el.offsetWidth, 'x', el.offsetHeight);
-                          console.log('Container position:', window.getComputedStyle(el).position);
-                        }
-                      }}
-                    >
+                    <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
                       {item.firstPhoto ? (
-                    <div className="h-full w-full">
-                        {/* Next.js Image component */}
-                        <Image
-                          src={`/api/thumbnails/${selectedYear}/${item.name}/${item.firstPhoto}`}
-                          alt={`${item.displayName} preview`}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          unoptimized
-                          onError={(e) => {
-                            console.error('Next.js Image error:', e);
-                            console.error('Failed src:', e.currentTarget.src);
-                          }}
-                          onLoad={(e) => {
-                            console.log('Next.js Image loaded:', e.currentTarget.src);
-                            console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                          }}
-                          onLoadingComplete={(result) => {
-                            console.log('Next.js Image loading complete:', result);
-                          }}
-                        />
-                        {/* Regular img tag for comparison */}
                         <img
-                          src={`/api/thumbnails/${selectedYear}/${item.name}/${item.firstPhoto}`}
-                          alt={`${item.displayName} preview (regular img)`}
-                          className="absolute top-0 left-0 w-full h-full object-cover opacity-50 z-10"
-                          onError={(e) => {
-                            console.error('Regular img error:', e);
-                            console.error('Failed src:', e.currentTarget.src);
-                          }}
-                          onLoad={(e) => {
-                            console.log('Regular img loaded:', e.currentTarget.src);
-                            console.log('Dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                          }}
+                          src={`/api/thumbnails/${item.path.split('public/albums/')[1]}/${item.firstPhoto}`}
+                          alt={`${item.displayName} preview`}
+                          className="max-w-full max-h-full object-contain"
                         />
-                    </div>
                       ) : (
-                        <div className="h-full flex items-center justify-center">
+                        <div className="h-full flex items-center justify-center bg-slate-600">
                           <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                         </div>
                       )}
                       
-                      {/* Overlay for album info on hover */}
-                      <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-all duration-300 flex items-end">
-                        <div className="w-full p-2 text-white opacity-0 hover:opacity-100 transition-opacity duration-300">
-                          <p className="text-sm font-medium truncate">
-                            {item.metadata?.photos?.length || 0} photos
-                          </p>
-                        </div>
+                      {/* Overlay for album info on hover - positioned to not interfere with image */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity duration-300">
+                        <p className="text-sm font-medium text-white truncate">
+                          {item.metadata?.photos?.length || 0} photos
+                        </p>
                       </div>
                     </div>
                     <div className="p-4">
