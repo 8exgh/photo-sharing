@@ -31,12 +31,16 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Auto-dismiss message after 10 seconds
+  // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
   useEffect(() => {
     if (message) {
+      const baseTime = 4000; // 4 seconds
+      const extraTime = message.length > 15 ? Math.floor((message.length - 15) / 10) * 1000 : 0;
+      const timeout = baseTime + extraTime;
+      
       const timer = setTimeout(() => {
         setMessage('');
-      }, 10000);
+      }, timeout);
       return () => clearTimeout(timer);
     }
   }, [message]);
