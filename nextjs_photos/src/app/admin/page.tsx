@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(`Access key created: ${data.key}`);
+        setMessage(`Access key created successfully: ${data.key}`);
         fetchAccessKeys();
       } else {
         setMessage(data.error || 'Failed to create access key');
