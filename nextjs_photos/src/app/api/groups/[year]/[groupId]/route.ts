@@ -7,7 +7,7 @@ const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { year: string; groupId: string } }
+  { params }: { params: Promise<{ year: string; groupId: string }> }
 ) {
   const sessionData = await validateSession(request);
   if (!sessionData.isAdmin) {
@@ -15,7 +15,7 @@ export async function GET(
   }
 
   try {
-    const { year, groupId } = params;
+    const { year, groupId } = await params;
     const groupPath = join(ALBUMS_DIR, year, groupId);
     const metadata = await getGroupMetadata(groupPath);
 
@@ -32,7 +32,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { year: string; groupId: string } }
+  { params }: { params: Promise<{ year: string; groupId: string }> }
 ) {
   const sessionData = await validateSession(request);
   if (!sessionData.isAdmin) {
@@ -40,7 +40,7 @@ export async function PUT(
   }
 
   try {
-    const { year, groupId } = params;
+    const { year, groupId } = await params;
     const { displayName, description, nestedAlbums } = await request.json();
     
     const groupPath = join(ALBUMS_DIR, year, groupId);
@@ -67,7 +67,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { year: string; groupId: string } }
+  { params }: { params: Promise<{ year: string; groupId: string }> }
 ) {
   const sessionData = await validateSession(request);
   if (!sessionData.isAdmin) {
@@ -75,7 +75,7 @@ export async function DELETE(
   }
 
   try {
-    const { year, groupId } = params;
+    const { year, groupId } = await params;
     const deleted = await deleteGroup(year, groupId);
 
     if (!deleted) {

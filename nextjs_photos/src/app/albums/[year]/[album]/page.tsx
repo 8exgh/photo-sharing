@@ -271,19 +271,19 @@ export default function AlbumView() {
           </Link>
           
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
-            {album.metadata.name}
+            {album?.metadata.name}
           </h1>
           
-          {album.metadata.location && (
+          {album?.metadata.location && (
             <p className="text-slate-300 mb-2">📍 {album.metadata.location}</p>
           )}
           
-          {album.metadata.description && (
+          {album?.metadata.description && (
             <p className="text-slate-300 mb-4">{album.metadata.description}</p>
           )}
           
           <p className="text-sm text-slate-400">
-            Created: {new Date(album.metadata.created).toLocaleDateString()}
+            Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
           </p>
         </div>
 
@@ -293,7 +293,7 @@ export default function AlbumView() {
           <div className="lg:col-span-2">
 
         {/* Photos Grid */}
-        {album.photos.length > 0 ? (
+        {album && album.photos.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
             {album.photos.map((photo, index) => (
               <div
@@ -318,7 +318,7 @@ export default function AlbumView() {
         )}
 
         {/* Videos Section */}
-        {album.metadata.videos.length > 0 && (
+        {album && album.metadata.videos.length > 0 && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,7 +348,7 @@ export default function AlbumView() {
         )}
 
         {/* Photo Modal */}
-        {selectedPhoto && (
+        {selectedPhoto && album && (
           <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
             <div className="relative max-w-6xl max-h-full p-4 w-full">
               <button
@@ -445,7 +445,7 @@ export default function AlbumView() {
               <h2 className="text-xl font-semibold text-slate-100 mb-4">Album Information</h2>
               
               {/* Album Text */}
-              {album.metadata.text && (
+              {album?.metadata.text && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-slate-200 mb-2">About this Album</h3>
                   <div className="p-4 bg-slate-800 rounded-lg">
@@ -457,7 +457,7 @@ export default function AlbumView() {
               )}
               
               {/* Selected Photo Text */}
-              {selectedPhoto && (
+              {selectedPhoto && album && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-slate-200 mb-2">Photo Details</h3>
                   <div className="p-4 bg-slate-800 rounded-lg">
@@ -479,7 +479,7 @@ export default function AlbumView() {
               )}
               
               {/* Selected Video Text */}
-              {selectedVideo !== null && (
+              {selectedVideo !== null && album && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-slate-200 mb-2">Video Details</h3>
                   <div className="p-4 bg-slate-800 rounded-lg">
@@ -499,9 +499,9 @@ export default function AlbumView() {
               
               {/* Album Stats */}
               <div className="text-sm text-slate-400 space-y-1">
-                <p>{album.photos.length} photos</p>
-                <p>{album.metadata.videos.length} videos</p>
-                <p>Created: {new Date(album.metadata.created).toLocaleDateString()}</p>
+                <p>{album?.photos.length || 0} photos</p>
+                <p>{album?.metadata.videos.length || 0} videos</p>
+                <p>Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}</p>
               </div>
             </div>
           </div>
