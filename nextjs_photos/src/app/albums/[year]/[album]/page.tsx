@@ -33,6 +33,27 @@ interface AlbumData {
   isNested?: boolean;
 }
 
+// Helper function to extract YouTube video ID from URL
+function getYouTubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+}
+
+// Helper function to check if URL is a YouTube link
+function isYouTubeUrl(url: string): boolean {
+  return /(?:youtube\.com|youtu\.be)/.test(url);
+}
+
 export default function AlbumView() {
   const params = useParams();
   const [album, setAlbum] = useState<AlbumData | null>(null);
@@ -322,27 +343,64 @@ export default function AlbumView() {
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {album.metadata.videos.map((video, index) => (
-                <div 
-                  key={index} 
-                  className="bg-slate-700 rounded-lg shadow-md p-4 cursor-pointer hover:bg-slate-600 transition-colors"
-                  onClick={() => setSelectedVideo(index)}
-                >
-                  <h3 className="font-semibold mb-2 text-slate-100">{video.title}</h3>
-                  <a
-                    href={video.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300"
-                    onClick={(e) => e.stopPropagation()}
+              {album.metadata.videos.map((video, index) => {
+                const isYouTube = isYouTubeUrl(video.url);
+                const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                
+                return (
+                  <div 
+                    key={index} 
+                    className="bg-slate-700 rounded-lg shadow-md overflow-hidden"
                   >
-                    Watch Video →
-                  </a>
-                  <p className="text-sm text-slate-400 mt-2">
-                    Added: {new Date(video.addedDate).toLocaleDateString()}
-                  </p>
-                </div>
-              ))}
+                    {isYouTube && youtubeId ? (
+                      <div>
+                        <div className="aspect-video">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${youtubeId}`}
+                            title={video.title}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-slate-100">{video.title}</h3>
+                          <p className="text-sm text-slate-400 mt-1">
+                            Added: {new Date(video.addedDate).toLocaleDateString()}
+                          </p>
+                          {video.text && (
+                            <div 
+                              className="mt-2 cursor-pointer text-blue-400 hover:text-blue-300 text-sm"
+                              onClick={() => setSelectedVideo(index)}
+                            >
+                              View details →
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-slate-600 transition-colors"
+                        onClick={() => setSelectedVideo(index)}
+                      >
+                        <h3 className="font-semibold mb-2 text-slate-100">{video.title}</h3>
+                        <a
+                          href={video.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Watch Video →
+                        </a>
+                        <p className="text-sm text-slate-400 mt-2">
+                          Added: {new Date(video.addedDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -433,6 +491,72 @@ export default function AlbumView() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Video Modal */}
+        {selectedVideo !== null && album && album.metadata.videos[selectedVideo] && (
+          <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+            <div className="relative max-w-4xl max-h-full p-4 w-full">
+              <button
+                onClick={() => setSelectedVideo(null)}
+                className="absolute top-4 right-4 text-white hover:text-slate-300 z-10"
+              >
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              <div className="bg-slate-800 rounded-lg overflow-hidden">
+                {(() => {
+                  const video = album.metadata.videos[selectedVideo];
+                  const isYouTube = isYouTubeUrl(video.url);
+                  const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                  
+                  return (
+                    <div>
+                      {isYouTube && youtubeId ? (
+                        <div className="aspect-video">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
+                            title={video.title}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      ) : (
+                        <div className="p-8 text-center">
+                          <h2 className="text-2xl font-bold text-slate-100 mb-4">{video.title}</h2>
+                          <a
+                            href={video.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+                          >
+                            Open Video in New Tab →
+                          </a>
+                        </div>
+                      )}
+                      
+                      <div className="p-6">
+                        <h2 className="text-xl font-bold text-slate-100 mb-2">{video.title}</h2>
+                        <p className="text-sm text-slate-400 mb-4">
+                          Added: {new Date(video.addedDate).toLocaleDateString()}
+                        </p>
+                        {video.text && (
+                          <div className="p-4 bg-slate-700 rounded-lg">
+                            <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                              {video.text}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
