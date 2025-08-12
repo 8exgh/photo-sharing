@@ -58,7 +58,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, location, description } = await request.json();
+    const { name, location, description, text } = await request.json();
     const { year, album } = await params;
     
     // Find the album using the group-aware function
@@ -79,6 +79,7 @@ export async function PUT(
       name: name || existingMetadata.name,
       location: location !== undefined ? location : existingMetadata.location,
       description: description !== undefined ? description : existingMetadata.description,
+      text: text !== undefined ? text : existingMetadata.text,
     };
     
     await saveAlbumMetadata(targetAlbum.path, updatedMetadata);

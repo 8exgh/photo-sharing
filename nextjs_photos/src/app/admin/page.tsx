@@ -628,6 +628,12 @@ export default function AdminDashboard() {
                         Edit Text
                       </button>
                       <Link
+                        href={`/admin/albums/${selectedYear}/${album.name}/edit`}
+                        className="text-green-400 hover:text-green-300 text-sm"
+                      >
+                        Edit Album Details
+                      </Link>
+                      <Link
                         href={`/admin/albums/${selectedYear}/${album.name}`}
                         className="text-purple-400 hover:text-purple-300 text-sm"
                       >
