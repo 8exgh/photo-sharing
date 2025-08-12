@@ -16,7 +16,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { text } = await request.json();
+    const { text, title } = await request.json();
     const { year, album, index } = await params;
     const albumPath = join(process.cwd(), 'public', 'albums', year, album);
     
@@ -30,11 +30,12 @@ export async function PUT(
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
     
-    // Update the video text
+    // Update the video fields
     const updatedVideos = [...existingMetadata.videos];
     updatedVideos[videoIndex] = {
       ...updatedVideos[videoIndex],
-      text: text || '',
+      text: text !== undefined ? text : updatedVideos[videoIndex].text,
+      title: title !== undefined ? title : updatedVideos[videoIndex].title,
     };
     
     const updatedMetadata = {

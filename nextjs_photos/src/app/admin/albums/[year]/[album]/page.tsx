@@ -80,6 +80,8 @@ export default function AlbumContentManager() {
   const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [albumTitle, setAlbumTitle] = useState('');
+  const [editingVideoTitle, setEditingVideoTitle] = useState<number | null>(null);
+  const [videoTitle, setVideoTitle] = useState('');
 
   useEffect(() => {
     fetchAlbum();
@@ -163,6 +165,48 @@ export default function AlbumContentManager() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveVideoTitle = async (index: number) => {
+    if (!album) return;
+    
+    if (videoTitle.trim() === album.metadata.videos[index].title) {
+      setEditingVideoTitle(null);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/albums/${params.year}/${params.album}/videos/${index}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: videoTitle.trim() }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Video title updated successfully!');
+        setEditingVideoTitle(null);
+        fetchAlbum();
+      } else {
+        setMessage(data.error || 'Failed to update video title');
+        setVideoTitle(album.metadata.videos[index].title); // Reset to original
+      }
+    } catch (error) {
+      setMessage('Network error while updating title');
+      if (album) {
+        setVideoTitle(album.metadata.videos[index].title); // Reset to original
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEditVideoTitle = () => {
+    setEditingVideoTitle(null);
+    setVideoTitle('');
   };
 
   const handleCancelEdit = () => {
@@ -558,7 +602,58 @@ export default function AlbumContentManager() {
                           />
                         </div>
                         <div className="p-4">
-                          <h3 className="font-semibold text-slate-100 mb-2">{video.title}</h3>
+                          <div className="mb-2">
+                            {editingVideoTitle === index ? (
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  value={videoTitle}
+                                  onChange={(e) => setVideoTitle(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveVideoTitle(index);
+                                    if (e.key === 'Escape') handleCancelEditVideoTitle();
+                                  }}
+                                  className="flex-1 font-semibold bg-slate-600 text-slate-100 px-2 py-1 rounded border border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleSaveVideoTitle(index)}
+                                  disabled={loading}
+                                  className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                                  title="Save"
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={handleCancelEditVideoTitle}
+                                  className="text-slate-400 hover:text-slate-300"
+                                  title="Cancel"
+                                >
+                                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center space-x-2 group">
+                                <h3 className="font-semibold text-slate-100">{video.title}</h3>
+                                <button
+                                  onClick={() => {
+                                    setEditingVideoTitle(index);
+                                    setVideoTitle(video.title);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-300"
+                                  title="Edit title"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <p className="text-sm text-slate-400 mb-4">
                             Added: {new Date(video.addedDate).toLocaleDateString()}
                           </p>
@@ -611,7 +706,58 @@ export default function AlbumContentManager() {
                       </div>
                     ) : (
                       <div className="p-4">
-                        <h3 className="font-semibold text-slate-100 mb-2">{video.title}</h3>
+                        <div className="mb-2">
+                          {editingVideoTitle === index ? (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="text"
+                                value={videoTitle}
+                                onChange={(e) => setVideoTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveVideoTitle(index);
+                                  if (e.key === 'Escape') handleCancelEditVideoTitle();
+                                }}
+                                className="flex-1 font-semibold bg-slate-600 text-slate-100 px-2 py-1 rounded border border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleSaveVideoTitle(index)}
+                                disabled={loading}
+                                className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                                title="Save"
+                              >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={handleCancelEditVideoTitle}
+                                className="text-slate-400 hover:text-slate-300"
+                                title="Cancel"
+                              >
+                                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2 group">
+                              <h3 className="font-semibold text-slate-100">{video.title}</h3>
+                              <button
+                                onClick={() => {
+                                  setEditingVideoTitle(index);
+                                  setVideoTitle(video.title);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-300"
+                                title="Edit title"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <a
                           href={video.url}
                           target="_blank"
