@@ -57,6 +57,8 @@ export default function AlbumContentManager() {
   const [photoText, setPhotoText] = useState('');
   const [videoText, setVideoText] = useState('');
   const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [albumTitle, setAlbumTitle] = useState('');
 
   useEffect(() => {
     fetchAlbum();
@@ -69,6 +71,7 @@ export default function AlbumContentManager() {
       
       if (response.ok) {
         setAlbum(data);
+        setAlbumTitle(data.metadata.name || '');
       } else {
         setMessage(data.error || 'Failed to load album');
       }
@@ -146,6 +149,49 @@ export default function AlbumContentManager() {
     setEditingVideo(null);
     setPhotoText('');
     setVideoText('');
+  };
+
+  const handleSaveAlbumTitle = async () => {
+    if (albumTitle.trim() === album?.metadata.name) {
+      setEditingTitle(false);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/albums/${params.year}/${params.album}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: albumTitle.trim(),
+          location: album?.metadata.location,
+          description: album?.metadata.description,
+          text: album?.metadata.text,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Album title updated successfully');
+        setEditingTitle(false);
+        fetchAlbum(); // Refresh the album data
+      } else {
+        setMessage(data.error || 'Failed to update album title');
+        setAlbumTitle(album?.metadata.name || ''); // Reset to original
+      }
+    } catch (error) {
+      setMessage('Network error while updating title');
+      setAlbumTitle(album?.metadata.name || ''); // Reset to original
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEditTitle = () => {
+    setEditingTitle(false);
+    setAlbumTitle(album?.metadata.name || '');
   };
 
   const handleDeletePhoto = async (filename: string) => {
@@ -253,9 +299,60 @@ export default function AlbumContentManager() {
                 </svg>
                 Back to Admin
               </Link>
-              <h1 className="text-3xl font-bold text-slate-100">
-                Manage Content: {album.metadata.name}
-              </h1>
+              <div className="flex items-center space-x-2">
+                {editingTitle ? (
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={albumTitle}
+                      onChange={(e) => setAlbumTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveAlbumTitle();
+                        if (e.key === 'Escape') handleCancelEditTitle();
+                      }}
+                      className="text-3xl font-bold bg-slate-700 text-slate-100 px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                    <button
+                      onClick={handleSaveAlbumTitle}
+                      disabled={loading}
+                      className="text-green-400 hover:text-green-300 disabled:opacity-50"
+                      title="Save"
+                    >
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={handleCancelEditTitle}
+                      className="text-slate-400 hover:text-slate-300"
+                      title="Cancel"
+                    >
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 group">
+                    <h1 className="text-3xl font-bold text-slate-100">
+                      Manage Content: {album.metadata.name}
+                    </h1>
+                    <button
+                      onClick={() => {
+                        setEditingTitle(true);
+                        setAlbumTitle(album.metadata.name);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-300"
+                      title="Edit title"
+                    >
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="text-slate-300 mt-2">
                 Edit text for photos and videos in this album
               </p>
