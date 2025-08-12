@@ -555,7 +555,7 @@ export default function AdminDashboard() {
                           className="px-2 py-1 text-sm border border-slate-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                           defaultValue={album.groupId || ''}
                         >
-                          <option value="">Move to...</option>
+                          <option value="">Move to Group...</option>
                           <option value="">No Group</option>
                           {groups.map((group) => (
                             <option key={group.id} value={group.id}>
