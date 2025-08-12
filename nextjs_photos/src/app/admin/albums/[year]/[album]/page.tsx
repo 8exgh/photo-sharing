@@ -36,6 +36,7 @@ export default function AlbumContentManager() {
   const [album, setAlbum] = useState<AlbumData | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
 
   // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
   useEffect(() => {
@@ -146,6 +147,55 @@ export default function AlbumContentManager() {
     setVideoText('');
   };
 
+  const handleUploadPhotos = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    
+    input.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+      
+      setUploadingPhotos(true);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      try {
+        for (const file of Array.from(files)) {
+          const formData = new FormData();
+          formData.append('file', file);
+          
+          const response = await fetch(`/api/albums/${params.year}/${params.album}/upload`, {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (response.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        }
+        
+        if (errorCount === 0) {
+          setMessage(`Successfully uploaded ${successCount} photo(s)`);
+        } else {
+          setMessage(`Uploaded ${successCount} photo(s), ${errorCount} failed`);
+        }
+        
+        // Refresh the album data to show new photos
+        fetchAlbum();
+      } catch (error) {
+        setMessage('Error uploading photos');
+      } finally {
+        setUploadingPhotos(false);
+      }
+    };
+    
+    input.click();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-800">
@@ -184,6 +234,18 @@ export default function AlbumContentManager() {
                 Edit text for photos and videos in this album
               </p>
             </div>
+            <div>
+              <button
+                onClick={handleUploadPhotos}
+                disabled={uploadingPhotos}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span>{uploadingPhotos ? 'Uploading...' : 'Upload Photos'}</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -217,9 +279,9 @@ export default function AlbumContentManager() {
         )}
 
         {/* Photos Section */}
-        {album.metadata.photos.length > 0 && (
+        {album.metadata.photos.length > 0 ? (
           <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
-            <h2 className="text-xl font-semibold mb-4 text-slate-100">Photos</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-100">Photos ({album.metadata.photos.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {album.metadata.photos.map((photo, index) => (
                 <div key={photo.filename} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
@@ -286,6 +348,26 @@ export default function AlbumContentManager() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : (
+          <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
+            <div className="bg-slate-700 rounded-lg p-8 text-center">
+              <svg className="mx-auto h-12 w-12 text-slate-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 className="text-lg font-medium text-slate-100 mb-2">No photos yet</h3>
+              <p className="text-slate-400 mb-4">Upload photos to get started</p>
+              <button
+                onClick={handleUploadPhotos}
+                disabled={uploadingPhotos}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 inline-flex items-center space-x-2"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <span>{uploadingPhotos ? 'Uploading...' : 'Upload Photos'}</span>
+              </button>
             </div>
           </div>
         )}
