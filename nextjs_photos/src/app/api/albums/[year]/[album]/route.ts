@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
-import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos } from '@/lib/albums';
+import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos, moveAlbumToYear } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { AlbumMetadata } from '@/types';
@@ -58,11 +58,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    const { name, location, description, text } = await request.json();
-    const { year, album } = await params;
+    const { name, location, description, text, year: newYear } = await request.json();
+    const { year: currentYear, album } = await params;
     
     // Find the album using the group-aware function
-    const albums = await getAlbumsWithGroups(year);
+    const albums = await getAlbumsWithGroups(currentYear);
     const targetAlbum = albums.find(a => a.name === album);
     
     if (!targetAlbum) {
@@ -74,6 +74,26 @@ export async function PUT(
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
     
+    let finalPath = targetAlbum.path;
+    let yearChanged = false;
+    
+    // Check if year needs to be changed
+    if (newYear && newYear !== currentYear) {
+      try {
+        finalPath = await moveAlbumToYear(
+          targetAlbum.path, 
+          newYear, 
+          album,
+          targetAlbum.groupId
+        );
+        yearChanged = true;
+      } catch (error: any) {
+        return NextResponse.json({ 
+          error: error.message || 'Failed to move album to new year' 
+        }, { status: 400 });
+      }
+    }
+    
     const updatedMetadata: AlbumMetadata = {
       ...existingMetadata,
       name: name || existingMetadata.name,
@@ -82,12 +102,16 @@ export async function PUT(
       text: text !== undefined ? text : existingMetadata.text,
     };
     
-    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
+    await saveAlbumMetadata(finalPath, updatedMetadata);
     
     return NextResponse.json({ 
       success: true, 
-      message: 'Album updated successfully',
+      message: yearChanged 
+        ? `Album updated and moved to ${newYear} successfully!` 
+        : 'Album updated successfully',
       metadata: updatedMetadata,
+      yearChanged,
+      newYear: yearChanged ? newYear : currentYear,
     });
   } catch (error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

@@ -18,6 +18,8 @@ export default function EditAlbum() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [years, setYears] = useState<string[]>([]);
+  const [currentYear, setCurrentYear] = useState<string>('');
   const [albumData, setAlbumData] = useState<AlbumMetadata>({
     name: '',
     location: '',
@@ -41,21 +43,30 @@ export default function EditAlbum() {
   }, [message]);
 
   useEffect(() => {
-    const fetchAlbumData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`/api/albums/${params.year}/${params.album}`);
-        const data = await response.json();
+        // Fetch album data
+        const albumResponse = await fetch(`/api/albums/${params.year}/${params.album}`);
+        const albumData = await albumResponse.json();
         
-        if (response.ok) {
+        if (albumResponse.ok) {
           setAlbumData({
-            name: data.metadata.name || '',
-            location: data.metadata.location || '',
-            description: data.metadata.description || '',
-            text: data.metadata.text || '',
-            created: data.metadata.created || '',
+            name: albumData.metadata.name || '',
+            location: albumData.metadata.location || '',
+            description: albumData.metadata.description || '',
+            text: albumData.metadata.text || '',
+            created: albumData.metadata.created || '',
           });
+          setCurrentYear(String(params.year));
         } else {
-          setMessage(data.error || 'Failed to load album');
+          setMessage(albumData.error || 'Failed to load album');
+        }
+        
+        // Fetch available years
+        const yearsResponse = await fetch('/api/albums');
+        const yearsData = await yearsResponse.json();
+        if (yearsResponse.ok && yearsData.years) {
+          setYears(yearsData.years);
         }
       } catch (error) {
         setMessage('Network error');
@@ -64,7 +75,7 @@ export default function EditAlbum() {
       }
     };
     
-    fetchAlbumData();
+    fetchData();
   }, [params.year, params.album]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,13 +94,15 @@ export default function EditAlbum() {
           location: albumData.location,
           description: albumData.description,
           text: albumData.text,
+          year: currentYear,
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setMessage('Album updated successfully!');
+        setMessage(data.message || 'Album updated successfully!');
         setTimeout(() => {
+          // Always redirect to admin page since the album URL might have changed
           router.push('/admin');
         }, 2000);
       } else {
@@ -160,17 +173,45 @@ export default function EditAlbum() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Album Name
-              </label>
-              <input
-                type="text"
-                required
-                value={albumData.name}
-                onChange={(e) => setAlbumData({ ...albumData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Album Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={albumData.name}
+                  onChange={(e) => setAlbumData({ ...albumData, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Year
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="2000"
+                  max="2100"
+                  value={currentYear}
+                  onChange={(e) => setCurrentYear(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100"
+                  placeholder="Enter year (e.g., 2025)"
+                />
+                {!years.includes(currentYear) && currentYear && currentYear !== String(params.year) && (
+                  <p className="text-blue-400 text-sm mt-1">
+                    ℹ️ This will create a new year folder: {currentYear}
+                  </p>
+                )}
+                {currentYear !== String(params.year) && years.includes(currentYear) && (
+                  <p className="text-yellow-400 text-sm mt-1">
+                    ⚠️ This will move the album to {currentYear}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div>

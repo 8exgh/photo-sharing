@@ -88,6 +88,46 @@ export async function getAllYears(): Promise<string[]> {
   }
 }
 
+export async function moveAlbumToYear(
+  currentPath: string, 
+  newYear: string, 
+  albumName: string,
+  groupId?: string
+): Promise<string> {
+  // Extract the album folder name from the current path
+  const pathParts = currentPath.split('/');
+  const albumFolderName = pathParts[pathParts.length - 1];
+  
+  // Determine the new path
+  let newPath: string;
+  if (groupId) {
+    // If the album is in a group, maintain that in the new year
+    const groupPath = join(ALBUMS_DIR, newYear, groupId);
+    await fs.mkdir(groupPath, { recursive: true });
+    newPath = join(groupPath, albumFolderName);
+  } else {
+    // Otherwise, place it directly in the year folder
+    const yearPath = join(ALBUMS_DIR, newYear);
+    await fs.mkdir(yearPath, { recursive: true });
+    newPath = join(yearPath, albumFolderName);
+  }
+  
+  // Check if the target already exists
+  try {
+    await fs.access(newPath);
+    throw new Error(`An album with the same name already exists in ${newYear}`);
+  } catch (error: any) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+  
+  // Move the album directory
+  await fs.rename(currentPath, newPath);
+  
+  return newPath;
+}
+
 export async function getAlbumPhotos(albumPath: string): Promise<string[]> {
   try {
     const files = await fs.readdir(albumPath);
