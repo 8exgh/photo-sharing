@@ -56,6 +56,7 @@ export default function AlbumContentManager() {
   const [editingVideo, setEditingVideo] = useState<number | null>(null);
   const [photoText, setPhotoText] = useState('');
   const [videoText, setVideoText] = useState('');
+  const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAlbum();
@@ -145,6 +146,31 @@ export default function AlbumContentManager() {
     setEditingVideo(null);
     setPhotoText('');
     setVideoText('');
+  };
+
+  const handleDeletePhoto = async (filename: string) => {
+    if (!confirm(`Are you sure you want to permanently delete this photo? This action cannot be undone.`)) {
+      return;
+    }
+    
+    setDeletingPhoto(filename);
+    try {
+      const response = await fetch(`/api/albums/${params.year}/${params.album}/photos/${filename}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Photo deleted successfully');
+        fetchAlbum(); // Refresh the album data
+      } else {
+        setMessage(data.error || 'Failed to delete photo');
+      }
+    } catch (error) {
+      setMessage('Network error while deleting photo');
+    } finally {
+      setDeletingPhoto(null);
+    }
   };
 
   const handleUploadPhotos = async () => {
@@ -295,7 +321,26 @@ export default function AlbumContentManager() {
                     />
                   </div>
                   <div className="p-4">
-                    <h3 className="font-semibold text-slate-100 mb-2">{photo.title}</h3>
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-slate-100">{photo.title}</h3>
+                      <button
+                        onClick={() => handleDeletePhoto(photo.filename)}
+                        disabled={deletingPhoto === photo.filename}
+                        className="text-red-400 hover:text-red-300 disabled:opacity-50"
+                        title="Delete photo"
+                      >
+                        {deletingPhoto === photo.filename ? (
+                          <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                     <p className="text-sm text-slate-400 mb-2">
                       {new Date(photo.uploadDate).toLocaleDateString()}
                     </p>
