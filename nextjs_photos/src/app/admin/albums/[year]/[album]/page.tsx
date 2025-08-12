@@ -30,6 +30,27 @@ interface AlbumData {
   albumPath: string;
 }
 
+// Helper function to extract YouTube video ID from URL
+function getYouTubeVideoId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
+    /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) {
+      return match[1];
+    }
+  }
+  return null;
+}
+
+// Helper function to check if URL is a YouTube link
+function isYouTubeUrl(url: string): boolean {
+  return /(?:youtube\.com|youtu\.be)/.test(url);
+}
+
 export default function AlbumContentManager() {
   const params = useParams();
   const router = useRouter();
@@ -517,24 +538,31 @@ export default function AlbumContentManager() {
         {/* Videos Section */}
         {album.metadata.videos.length > 0 && (
           <div className={`${message ? (album.metadata.photos.length === 0 ? 'mt-20' : '') : ''}`}>
-            <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos</h2>
+            <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos ({album.metadata.videos.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {album.metadata.videos.map((video, index) => (
-                <div key={index} className="bg-slate-700 rounded-lg shadow-md p-4">
-                  <h3 className="font-semibold text-slate-100 mb-2">{video.title}</h3>
-                  <a
-                    href={video.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 mb-2 inline-block"
-                  >
-                    Watch Video →
-                  </a>
-                  <p className="text-sm text-slate-400 mb-4">
-                    Added: {new Date(video.addedDate).toLocaleDateString()}
-                  </p>
-                  
-                  {editingVideo === index ? (
+              {album.metadata.videos.map((video, index) => {
+                const isYouTube = isYouTubeUrl(video.url);
+                const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                
+                return (
+                  <div key={index} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
+                    {isYouTube && youtubeId ? (
+                      <div>
+                        <div className="aspect-video">
+                          <iframe
+                            src={`https://www.youtube.com/embed/${youtubeId}`}
+                            title={video.title}
+                            className="w-full h-full"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-slate-100 mb-2">{video.title}</h3>
+                          <p className="text-sm text-slate-400 mb-4">
+                            Added: {new Date(video.addedDate).toLocaleDateString()}
+                          </p>
+                          {editingVideo === index ? (
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-slate-300">
                         Video Text
@@ -579,8 +607,73 @@ export default function AlbumContentManager() {
                       </button>
                     </div>
                   )}
-                </div>
-              ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4">
+                        <h3 className="font-semibold text-slate-100 mb-2">{video.title}</h3>
+                        <a
+                          href={video.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 mb-2 inline-block"
+                        >
+                          Watch Video →
+                        </a>
+                        <p className="text-sm text-slate-400 mb-4">
+                          Added: {new Date(video.addedDate).toLocaleDateString()}
+                        </p>
+                        
+                        {editingVideo === index ? (
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-slate-300">
+                              Video Text
+                            </label>
+                            <textarea
+                              value={videoText}
+                              onChange={(e) => setVideoText(e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100 resize-vertical"
+                              rows={4}
+                              placeholder="Enter video description..."
+                            />
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={handleCancelEdit}
+                                className="px-3 py-1 text-sm text-slate-300 bg-slate-600 rounded hover:bg-slate-500"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleSaveVideoText(index)}
+                                disabled={loading}
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                              >
+                                {loading ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            {video.text && (
+                              <div className="mb-2 p-2 border border-slate-600 rounded bg-slate-800">
+                                <p className="text-sm text-slate-300 whitespace-pre-wrap">
+                                  {video.text}
+                                </p>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => handleEditVideoText(index, video.text || '')}
+                              className="text-yellow-400 hover:text-yellow-300 text-sm"
+                            >
+                              {video.text ? 'Edit Text' : 'Add Text'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
