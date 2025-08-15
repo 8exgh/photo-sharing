@@ -47,6 +47,7 @@ jobs:
             -v /path/to/your/photos:/app/photos \
             -v /path/to/your/data:/app/data \
             -e NODE_ENV=production \
+            -e ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}' \
             ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
       
       - name: Health check
