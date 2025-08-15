@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
   try {
     const groups = await getGroupsByYear(year);
     return NextResponse.json({ groups });
-  } catch (error) {
-    console.error('Error fetching groups:', error);
+  } catch (_error) {
+    console.error('Error fetching groups:', _error);
     return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 });
   }
 }
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     const group = await createGroup(year, groupName, displayName, description || '');
     return NextResponse.json({ group });
-  } catch (error) {
-    console.error('Error creating group:', error);
+  } catch (_error) {
+    console.error('Error creating group:', _error);
     return NextResponse.json({ error: 'Failed to create group' }, { status: 500 });
   }
 }

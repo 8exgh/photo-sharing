@@ -54,8 +54,8 @@ export default function GroupManagement() {
       if (data.years && data.years.length > 0) {
         setSelectedYear(data.years[0]);
       }
-    } catch (error) {
-      console.error('Error fetching years:', error);
+    } catch (_error) {
+      console.error('Error fetching years:', _error);
     }
   };
 
@@ -64,8 +64,8 @@ export default function GroupManagement() {
       const response = await fetch(`/api/groups?year=${year}`);
       const data = await response.json();
       setGroups(data.groups || []);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
+    } catch (_error) {
+      console.error('Error fetching groups:', _error);
     }
   };
 
@@ -99,7 +99,7 @@ export default function GroupManagement() {
       } else {
         setMessage(data.error || 'Failed to create group');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -135,7 +135,7 @@ export default function GroupManagement() {
       } else {
         setMessage(data.error || 'Failed to update group');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -160,7 +160,7 @@ export default function GroupManagement() {
       } else {
         setMessage(data.error || 'Failed to delete group');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -171,8 +171,8 @@ export default function GroupManagement() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       router.push('/admin/login');
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (_error) {
+      console.error('Logout error:', _error);
     }
   };
 

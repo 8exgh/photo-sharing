@@ -56,11 +56,11 @@ export async function middleware(request: NextRequest) {
             url.searchParams.delete('key');
             return NextResponse.redirect(url);
           }
-        } catch (error) {
+        } catch (_error) {
           // Fall through to access denied
         }
       }
-    } catch (error) {
+    } catch (_error) {
       // Fall through to access denied
     }
     
@@ -83,7 +83,7 @@ export async function middleware(request: NextRequest) {
       if (!session.isAdmin) {
         return NextResponse.redirect(new URL('/admin/login', request.url));
       }
-    } catch (error) {
+    } catch (_error) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }

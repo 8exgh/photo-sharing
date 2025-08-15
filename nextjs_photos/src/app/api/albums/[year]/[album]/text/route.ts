@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
-import { join } from 'path';
 
 export const runtime = 'nodejs';
 
@@ -45,7 +44,7 @@ export async function PUT(
       message: 'Album text updated successfully',
       text: updatedMetadata.text,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

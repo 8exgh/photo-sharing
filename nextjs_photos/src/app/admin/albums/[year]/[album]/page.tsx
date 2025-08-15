@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -53,7 +53,6 @@ function isYouTubeUrl(url: string): boolean {
 
 export default function AlbumContentManager() {
   const params = useParams();
-  const router = useRouter();
   const [album, setAlbum] = useState<AlbumData | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -83,11 +82,7 @@ export default function AlbumContentManager() {
   const [editingVideoTitle, setEditingVideoTitle] = useState<number | null>(null);
   const [videoTitle, setVideoTitle] = useState('');
 
-  useEffect(() => {
-    fetchAlbum();
-  }, [params.year, params.album]);
-
-  const fetchAlbum = async () => {
+  const fetchAlbum = useCallback(async () => {
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}`);
       const data = await response.json();
@@ -98,12 +93,16 @@ export default function AlbumContentManager() {
       } else {
         setMessage(data.error || 'Failed to load album');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.year, params.album]);
+
+  useEffect(() => {
+    fetchAlbum();
+  }, [fetchAlbum]);
 
   const handleEditPhotoText = (filename: string, currentText: string) => {
     setEditingPhoto(filename);
@@ -129,7 +128,7 @@ export default function AlbumContentManager() {
       } else {
         setMessage(data.error || 'Failed to update photo text');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -160,7 +159,7 @@ export default function AlbumContentManager() {
       } else {
         setMessage(data.error || 'Failed to update video text');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -194,7 +193,7 @@ export default function AlbumContentManager() {
         setMessage(data.error || 'Failed to update video title');
         setVideoTitle(album.metadata.videos[index].title); // Reset to original
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error while updating title');
       if (album) {
         setVideoTitle(album.metadata.videos[index].title); // Reset to original
@@ -246,7 +245,7 @@ export default function AlbumContentManager() {
         setMessage(data.error || 'Failed to update album title');
         setAlbumTitle(album?.metadata.name || ''); // Reset to original
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error while updating title');
       setAlbumTitle(album?.metadata.name || ''); // Reset to original
     } finally {
@@ -277,7 +276,7 @@ export default function AlbumContentManager() {
       } else {
         setMessage(data.error || 'Failed to delete photo');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error while deleting photo');
     } finally {
       setDeletingPhoto(null);
@@ -323,7 +322,7 @@ export default function AlbumContentManager() {
         
         // Refresh the album data to show new photos
         fetchAlbum();
-      } catch (error) {
+      } catch (_error) {
         setMessage('Error uploading photos');
       } finally {
         setUploadingPhotos(false);
@@ -471,7 +470,7 @@ export default function AlbumContentManager() {
           <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Photos ({album.metadata.photos.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {album.metadata.photos.map((photo, index) => (
+              {album.metadata.photos.map((photo) => (
                 <div key={photo.filename} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
                   <div className="aspect-video bg-slate-600 relative">
                     <Image

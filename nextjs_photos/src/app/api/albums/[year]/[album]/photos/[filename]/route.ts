@@ -52,7 +52,7 @@ export async function PUT(
       message: 'Photo text updated successfully',
       text: updatedPhotos[photoIndex].text,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -97,19 +97,19 @@ export async function DELETE(
     // Delete the physical files
     try {
       await fs.unlink(photoPath);
-    } catch (err) {
-      const error = err as NodeJS.ErrnoException;
+    } catch (_err) {
+      const error = _err as NodeJS.ErrnoException;
       if (error.code !== 'ENOENT') {
-        console.error('Error deleting photo file:', error);
+        console.error('Error deleting photo file:', _err);
       }
     }
     
     try {
       await fs.unlink(thumbnailPath);
-    } catch (err) {
-      const error = err as NodeJS.ErrnoException;
+    } catch (_err) {
+      const error = _err as NodeJS.ErrnoException;
       if (error.code !== 'ENOENT') {
-        console.error('Error deleting thumbnail file:', error);
+        console.error('Error deleting thumbnail file:', _err);
       }
     }
     
@@ -127,8 +127,8 @@ export async function DELETE(
       success: true, 
       message: 'Photo deleted successfully',
     });
-  } catch (error) {
-    console.error('Error deleting photo:', error);
+  } catch (_error) {
+    console.error('Error deleting photo:', _error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

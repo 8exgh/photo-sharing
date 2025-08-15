@@ -3,13 +3,13 @@ import { getSession } from '@/lib/session';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     const session = await getSession();
     session.destroy();
     
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos, moveAlbumToYear } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
-import { join } from 'path';
 import { AlbumMetadata } from '@/types';
 
 export const runtime = 'nodejs';
@@ -42,7 +41,7 @@ export async function GET(
       groupId: targetAlbum.groupId,
       isNested: targetAlbum.isNested,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -87,9 +86,9 @@ export async function PUT(
           targetAlbum.groupId
         );
         yearChanged = true;
-      } catch (error: any) {
+      } catch (_error) {
         return NextResponse.json({ 
-          error: error.message || 'Failed to move album to new year' 
+          error: _error instanceof Error ? _error.message : 'Failed to move album to new year' 
         }, { status: 400 });
       }
     }
@@ -113,7 +112,7 @@ export async function PUT(
       yearChanged,
       newYear: yearChanged ? newYear : currentYear,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

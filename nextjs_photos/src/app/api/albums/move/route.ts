@@ -25,8 +25,8 @@ export async function POST(request: NextRequest) {
       message: 'Album moved successfully',
       newPath: newPath.split('public/albums/')[1],
     });
-  } catch (error) {
-    console.error('Error moving album:', error);
+  } catch (_error) {
+    console.error('Error moving album:', _error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

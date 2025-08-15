@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { AlbumMetadata, PhotoMetadata, VideoMetadata } from '@/types';
+import { AlbumMetadata } from '@/types';
 
 const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
 
@@ -34,7 +34,7 @@ export async function getAlbumMetadata(albumPath: string): Promise<AlbumMetadata
     const metadataPath = join(albumPath, 'album.json');
     const data = await fs.readFile(metadataPath, 'utf8');
     return JSON.parse(data);
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -66,7 +66,7 @@ export async function getAlbumsByYear(year: string): Promise<{ name: string; pat
     );
     
     return albumsWithMetadata.filter(Boolean) as { name: string; path: string; metadata: AlbumMetadata | null; firstPhoto: string | null }[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -83,7 +83,7 @@ export async function getAllYears(): Promise<string[]> {
     );
     
     return yearDirs.filter(Boolean) as string[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -116,9 +116,9 @@ export async function moveAlbumToYear(
   try {
     await fs.access(newPath);
     throw new Error(`An album with the same name already exists in ${newYear}`);
-  } catch (error: any) {
-    if (error.code !== 'ENOENT') {
-      throw error;
+  } catch (_error) {
+    if ((_error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw _error;
     }
   }
   
@@ -135,7 +135,7 @@ export async function getAlbumPhotos(albumPath: string): Promise<string[]> {
       const ext = file.toLowerCase().split('.').pop();
       return ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
     });
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from "next/link";
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -31,7 +30,7 @@ export default function Home() {
         const data = await response.json();
         setError(data.error || 'Login failed');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error');
     } finally {
       setLoading(false);

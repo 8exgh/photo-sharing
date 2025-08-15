@@ -29,7 +29,7 @@ export default function AdminLogin() {
         const data = await response.json();
         setError(data.error || 'Login failed');
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Network error');
     } finally {
       setLoading(false);

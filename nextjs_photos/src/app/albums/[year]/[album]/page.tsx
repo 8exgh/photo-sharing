@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -65,11 +65,7 @@ export default function AlbumView() {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchAlbumOrGroup();
-  }, [params.year, params.album]);
-
-  const fetchAlbumOrGroup = async () => {
+  const fetchAlbumOrGroup = useCallback(async () => {
     try {
       // First try to fetch as a group
       const groupResponse = await fetch(`/api/groups/${params.year}/${params.album}`);
@@ -96,12 +92,16 @@ export default function AlbumView() {
           setError(albumData.error || 'Album/Group not found');
         }
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Network error');
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.year, params.album]);
+
+  useEffect(() => {
+    fetchAlbumOrGroup();
+  }, [fetchAlbumOrGroup]);
 
   const openPhotoModal = (photo: string) => {
     setSelectedPhoto(photo);
@@ -224,6 +224,7 @@ export default function AlbumView() {
                 >
                   <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
                     {album.firstPhoto ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
                       <img
                         src={`/api/thumbnails/${album.path.split('public/albums/')[1]}/${album.firstPhoto}`}
                         alt={`${album.metadata?.name || album.name} preview`}

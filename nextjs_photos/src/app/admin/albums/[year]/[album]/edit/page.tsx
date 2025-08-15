@@ -68,7 +68,7 @@ export default function EditAlbum() {
         if (yearsResponse.ok && yearsData.years) {
           setYears(yearsData.years);
         }
-      } catch (error) {
+      } catch (_error) {
         setMessage('Network error');
       } finally {
         setLoading(false);
@@ -108,7 +108,7 @@ export default function EditAlbum() {
       } else {
         setMessage(data.error || 'Failed to update album');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setSaving(false);

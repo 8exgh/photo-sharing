@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
-import { GroupMetadata, AlbumWithGroup } from '@/types';
+import { GroupMetadata } from '@/types';
 
 interface Album {
   name: string;
@@ -40,18 +39,7 @@ function AlbumsContent() {
   const [groups, setGroups] = useState<GroupMetadata[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchYears();
-  }, []);
-
-  useEffect(() => {
-    if (selectedYear) {
-      fetchAlbums(selectedYear);
-      fetchGroups(selectedYear);
-    }
-  }, [selectedYear]);
-
-  const fetchYears = async () => {
+  const fetchYears = useCallback(async () => {
     try {
       const response = await fetch('/api/albums');
       const data = await response.json();
@@ -64,12 +52,23 @@ function AlbumsContent() {
       } else if (data.years && data.years.length > 0) {
         setSelectedYear(data.years[0]);
       }
-    } catch (error) {
-      console.error('Error fetching years:', error);
+    } catch (_error) {
+      console.error('Error fetching years:', _error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetchYears();
+  }, [fetchYears]);
+
+  useEffect(() => {
+    if (selectedYear) {
+      fetchAlbums(selectedYear);
+      fetchGroups(selectedYear);
+    }
+  }, [selectedYear]);
 
   const fetchAlbums = async (year: string) => {
     try {
@@ -79,8 +78,8 @@ function AlbumsContent() {
       const data = await response.json();
       console.log('Albums data received:', data);
       setAlbums(data.albums || []);
-    } catch (error) {
-      console.error('Error fetching albums:', error);
+    } catch (_error) {
+      console.error('Error fetching albums:', _error);
     }
   };
 
@@ -89,8 +88,8 @@ function AlbumsContent() {
       const response = await fetch(`/api/groups?year=${year}`);
       const data = await response.json();
       setGroups(data.groups || []);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
+    } catch (_error) {
+      console.error('Error fetching groups:', _error);
     }
   };
 
@@ -201,6 +200,7 @@ function AlbumsContent() {
                     <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
                       {/* Background image if available */}
                       {item.firstPhoto && item.firstAlbumPath ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={`/api/thumbnails/${item.firstAlbumPath.split('public/albums/')[1]}/${item.firstPhoto}`}
                           alt={`${item.displayName} preview`}
@@ -238,6 +238,7 @@ function AlbumsContent() {
                   >
                     <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
                       {item.firstPhoto ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img
                           src={`/api/thumbnails/${item.path.split('public/albums/')[1]}/${item.firstPhoto}`}
                           alt={`${item.displayName} preview`}

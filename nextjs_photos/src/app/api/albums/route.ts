@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       const years = await getAllYears();
       return NextResponse.json({ years });
     }
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       message: 'Album created successfully',
       albumPath: albumPath.split('public/albums/')[1],
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

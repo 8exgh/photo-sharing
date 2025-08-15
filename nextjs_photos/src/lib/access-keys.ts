@@ -8,7 +8,7 @@ export async function getAccessKeys(): Promise<AccessKey[]> {
   try {
     const data = await fs.readFile(ACCESS_KEYS_FILE, 'utf8');
     return JSON.parse(data);
-  } catch (error) {
+  } catch (_error) {
     // File doesn't exist yet, return empty array
     return [];
   }

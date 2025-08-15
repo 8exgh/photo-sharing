@@ -4,7 +4,6 @@ import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
-import formidable from 'formidable';
 import sharp from 'sharp';
 import { PhotoMetadata } from '@/types';
 
@@ -41,14 +40,14 @@ export async function POST(
     }
 
     // Parse form data
-    const form = formidable({
-      uploadDir: albumPath,
-      keepExtensions: true,
-      maxFileSize: 100 * 1024 * 1024, // 100MB
-      filter: (part) => {
-        return part.mimetype?.includes('image/') || false;
-      },
-    });
+    // const form = formidable({
+    //   uploadDir: albumPath,
+    //   keepExtensions: true,
+    //   maxFileSize: 100 * 1024 * 1024, // 100MB
+    //   filter: (part) => {
+    //     return part.mimetype?.includes('image/') || false;
+    //   },
+    // });
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -65,7 +64,7 @@ export async function POST(
     // Generate unique filename
     const timestamp = Date.now();
     const originalName = file.name;
-    const extension = originalName.split('.').pop();
+    // const extension = originalName.split('.').pop();
     const filename = `${timestamp}-${originalName}`;
     
     // Ensure thumbnails directory exists
@@ -109,8 +108,8 @@ export async function POST(
       message: 'Photo uploaded successfully',
       filename,
     });
-  } catch (error) {
-    console.error('Upload error:', error);
+  } catch (_error) {
+    console.error('Upload error:', _error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ import { createAccessKey, getAccessKeys } from '@/lib/access-keys';
 
 export const runtime = 'nodejs';
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getSession();
     
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     
     const keys = await getAccessKeys();
     return NextResponse.json({ keys });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     const key = await createAccessKey(expires);
     
     return NextResponse.json({ key });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

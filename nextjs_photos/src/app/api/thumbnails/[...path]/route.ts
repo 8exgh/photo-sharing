@@ -73,12 +73,12 @@ export async function GET(
           'Content-Length': imageBuffer.length.toString(),
         },
       });
-    } catch (fileError) {
+    } catch (_fileError) {
       // File not found or read error
       return NextResponse.json({ error: 'Image not found' }, { status: 404 });
     }
-  } catch (error) {
-    console.error('Thumbnail serving error:', error);
+  } catch (_error) {
+    console.error('Thumbnail serving error:', _error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

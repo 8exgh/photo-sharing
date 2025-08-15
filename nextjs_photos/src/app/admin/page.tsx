@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GroupMetadata, AlbumWithGroup } from '@/types';
+import { GroupMetadata } from '@/types';
 
 interface Album {
   name: string;
@@ -26,7 +26,6 @@ export default function AdminDashboard() {
   const [groups, setGroups] = useState<GroupMetadata[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showAccessKeyForm, setShowAccessKeyForm] = useState(false);
   const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string}>>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -78,8 +77,8 @@ export default function AdminDashboard() {
       if (data.years && data.years.length > 0) {
         setSelectedYear(data.years[0]);
       }
-    } catch (error) {
-      console.error('Error fetching years:', error);
+    } catch (_error) {
+      console.error('Error fetching years:', _error);
     }
   };
 
@@ -88,8 +87,8 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/albums?year=${year}`);
       const data = await response.json();
       setAlbums(data.albums || []);
-    } catch (error) {
-      console.error('Error fetching albums:', error);
+    } catch (_error) {
+      console.error('Error fetching albums:', _error);
     }
   };
 
@@ -98,8 +97,8 @@ export default function AdminDashboard() {
       const response = await fetch('/api/access-keys');
       const data = await response.json();
       setAccessKeys(data.keys || []);
-    } catch (error) {
-      console.error('Error fetching access keys:', error);
+    } catch (_error) {
+      console.error('Error fetching access keys:', _error);
     }
   };
 
@@ -108,8 +107,8 @@ export default function AdminDashboard() {
       const response = await fetch(`/api/groups?year=${year}`);
       const data = await response.json();
       setGroups(data.groups || []);
-    } catch (error) {
-      console.error('Error fetching groups:', error);
+    } catch (_error) {
+      console.error('Error fetching groups:', _error);
     }
   };
 
@@ -146,7 +145,7 @@ export default function AdminDashboard() {
       } else {
         setMessage(data.error || 'Failed to create album');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -171,7 +170,7 @@ export default function AdminDashboard() {
       } else {
         setMessage(data.error || 'Failed to create access key');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -210,7 +209,7 @@ export default function AdminDashboard() {
         if (selectedYear === year) {
           fetchAlbums(selectedYear);
         }
-      } catch (error) {
+      } catch (_error) {
         setMessage('Error uploading photos');
       } finally {
         setUploadingFiles(prev => ({ ...prev, [albumKey]: false }));
@@ -245,7 +244,7 @@ export default function AdminDashboard() {
       } else {
         setMessage(data.error || 'Failed to add video');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -278,7 +277,7 @@ export default function AdminDashboard() {
       } else {
         setMessage(data.error || 'Failed to update album text');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -313,7 +312,7 @@ export default function AdminDashboard() {
       } else {
         setMessage(data.error || 'Failed to move album');
       }
-    } catch (error) {
+    } catch (_error) {
       setMessage('Network error');
     } finally {
       setLoading(false);
@@ -324,8 +323,8 @@ export default function AdminDashboard() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       router.push('/admin/login');
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (_error) {
+      console.error('Logout error:', _error);
     }
   };
 

@@ -50,8 +50,8 @@ export async function POST(
       message: 'Video link added successfully',
       video: videoMetadata,
     });
-  } catch (error) {
-    console.error('Video add error:', error);
+  } catch (_error) {
+    console.error('Video add error:', _error);
     return NextResponse.json({ error: 'Failed to add video' }, { status: 500 });
   }
 }
@@ -98,8 +98,8 @@ export async function DELETE(
       success: true, 
       message: 'Video link removed successfully',
     });
-  } catch (error) {
-    console.error('Video delete error:', error);
+  } catch (_error) {
+    console.error('Video delete error:', _error);
     return NextResponse.json({ error: 'Failed to remove video' }, { status: 500 });
   }
 }

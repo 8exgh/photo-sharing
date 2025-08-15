@@ -1,7 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { GroupMetadata, AlbumWithGroup, AlbumMetadata } from '@/types';
-import { sanitizeAlbumName, getAlbumMetadata, getAlbumPhotos } from './albums';
+import { GroupMetadata, AlbumWithGroup } from '@/types';
+import { getAlbumMetadata, getAlbumPhotos } from './albums';
 
 const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
 
@@ -30,7 +30,7 @@ export async function getGroupMetadata(groupPath: string): Promise<GroupMetadata
     const metadataPath = join(groupPath, 'group.json');
     const data = await fs.readFile(metadataPath, 'utf8');
     return JSON.parse(data);
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -52,8 +52,8 @@ export async function updateGroupAlbumCount(groupPath: string): Promise<void> {
     
     metadata.albumCount = albumCount.filter(Boolean).length;
     await saveGroupMetadata(groupPath, metadata);
-  } catch (error) {
-    console.error('Error updating group album count:', error);
+  } catch (_error) {
+    console.error('Error updating group album count:', _error);
   }
 }
 
@@ -78,7 +78,7 @@ export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
     );
     
     return groups.filter(Boolean) as GroupMetadata[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -118,7 +118,7 @@ export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[
     }
     
     return albums;
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -158,7 +158,7 @@ export async function getAlbumsInGroup(groupPath: string, groupId: string): Prom
     );
     
     return albums.filter(Boolean) as AlbumWithGroup[];
-  } catch (error) {
+  } catch (_error) {
     return [];
   }
 }
@@ -201,8 +201,8 @@ export async function deleteGroup(year: string, groupId: string): Promise<boolea
     
     await fs.rm(groupPath, { recursive: true });
     return true;
-  } catch (error) {
-    throw error;
+  } catch (_error) {
+    throw _error;
   }
 }
 

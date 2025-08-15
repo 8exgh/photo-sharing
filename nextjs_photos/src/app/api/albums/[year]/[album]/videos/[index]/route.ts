@@ -50,7 +50,7 @@ export async function PUT(
       message: 'Video text updated successfully',
       text: updatedVideos[videoIndex].text,
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

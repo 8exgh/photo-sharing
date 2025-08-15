@@ -24,8 +24,8 @@ export async function GET(
     }
 
     return NextResponse.json({ group: metadata });
-  } catch (error) {
-    console.error('Error fetching group:', error);
+  } catch (_error) {
+    console.error('Error fetching group:', _error);
     return NextResponse.json({ error: 'Failed to fetch group' }, { status: 500 });
   }
 }
@@ -59,8 +59,8 @@ export async function PUT(
 
     await saveGroupMetadata(groupPath, updatedMetadata);
     return NextResponse.json({ group: updatedMetadata });
-  } catch (error) {
-    console.error('Error updating group:', error);
+  } catch (_error) {
+    console.error('Error updating group:', _error);
     return NextResponse.json({ error: 'Failed to update group' }, { status: 500 });
   }
 }
@@ -83,10 +83,10 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting group:', error);
-    if (error instanceof Error && error.message.includes('Cannot delete group containing albums')) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (_error) {
+    console.error('Error deleting group:', _error);
+    if (_error instanceof Error && _error.message.includes('Cannot delete group containing albums')) {
+      return NextResponse.json({ error: _error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Failed to delete group' }, { status: 500 });
   }
