@@ -8,8 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: nextjs-tik
-  GITHUB_USERNAME: 8exgh
+  IMAGE_NAME: ${{ github.event.repository.name }}
 
 jobs:
   build-and-push:
@@ -56,7 +55,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.GITHUB_USERNAME }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
             type=raw,value=${{ steps.timestamp.outputs.timestamp }}
