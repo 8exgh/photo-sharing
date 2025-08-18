@@ -20,11 +20,18 @@ export async function PUT(
     
     const { text } = await request.json();
     const { year, album, filename } = await params;
-    const albumPath = join(process.cwd(), 'public', 'albums', year, album);
     
-    const existingMetadata = await getAlbumMetadata(albumPath);
-    if (!existingMetadata) {
+    // Find the album using the group-aware function to get the correct path
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const existingMetadata = await getAlbumMetadata(targetAlbum.path);
+    if (!existingMetadata) {
+      return NextResponse.json({ error: 'Album metadata not found' }, { status: 404 });
     }
     
     // Find the photo in the metadata
@@ -45,7 +52,7 @@ export async function PUT(
       photos: updatedPhotos,
     };
     
-    await saveAlbumMetadata(albumPath, updatedMetadata);
+    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
     
     return NextResponse.json({ 
       success: true, 
@@ -121,7 +128,7 @@ export async function DELETE(
       photos: updatedPhotos,
     };
     
-    await saveAlbumMetadata(albumPath, updatedMetadata);
+    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
     
     return NextResponse.json({ 
       success: true, 
