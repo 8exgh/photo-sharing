@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { promises as fs } from 'fs';
 import { join } from 'path';
+import { isValidAccessKey } from '@/lib/access-keys';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +15,17 @@ export async function GET(
     
     if (!session.isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Validate access key for non-admin sessions
+    if (!session.isAdmin && session.accessKey) {
+      const keyIsValid = await isValidAccessKey(session.accessKey);
+      if (!keyIsValid) {
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+      }
     }
 
     const { path } = await params;

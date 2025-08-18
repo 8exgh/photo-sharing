@@ -28,31 +28,95 @@ export async function middleware(request: NextRequest) {
         },
       });
       
-      // Allow authenticated sessions (admin or with access key) to proceed
-      // Actual validation will happen in API routes
-      if (session.isAuthenticated) {
-        return response;
+      // If a key is present in the URL, always validate it — even for admins.
+      // This makes shared links behave like viewer-mode regardless of admin login state.
+      const urlKey = searchParams.get('key');
+      if (urlKey) {
+        const validateUrl = new URL('/api/validate-key', request.url);
+        const validateRes = await fetch(validateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: urlKey }),
+          cache: 'no-store',
+        });
+
+        if (validateRes.status === 200) {
+          // Establish or refresh a viewer session keyed by the provided access key
+          session.isAuthenticated = true;
+          session.accessKey = urlKey;
+          // Do not alter admin flag here; this path enforces key validity when a key is provided
+          await session.save();
+
+          const url = new URL(request.url);
+          url.searchParams.delete('key');
+          return NextResponse.redirect(url);
+        }
+
+        // Key invalid -> deny access irrespective of admin state for this link form
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.redirect(new URL('/access-denied', request.url));
       }
       
-      // Check for access key in URL and create session
-      // Validation will happen in API routes
+      // If already authenticated, validate non-admin access key on each request
+      if (session.isAuthenticated) {
+        if (session.isAdmin) {
+          return response;
+        }
+
+        if (session.accessKey) {
+          const validateUrl = new URL('/api/validate-key', request.url);
+          const validateRes = await fetch(validateUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: session.accessKey }),
+            cache: 'no-store',
+          });
+
+          if (validateRes.status !== 200) {
+            // Invalidate the session if key no longer valid
+            session.isAuthenticated = false;
+            session.accessKey = undefined;
+            await session.save();
+            return NextResponse.redirect(new URL('/access-denied', request.url));
+          }
+
+          return response;
+        }
+
+        // No admin flag and no access key: treat as unauthenticated
+        session.isAuthenticated = false;
+        await session.save();
+      }
+
+      // Not authenticated: check for access key in URL and validate before creating session
       const accessKey = searchParams.get('key');
       if (accessKey) {
-        // Create session with the key and redirect to clean URL
-        session.isAuthenticated = true;
-        session.accessKey = accessKey;
-        await session.save();
-        
-        const url = new URL(request.url);
-        url.searchParams.delete('key');
-        return NextResponse.redirect(url);
+        const validateUrl = new URL('/api/validate-key', request.url);
+        const validateRes = await fetch(validateUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: accessKey }),
+          cache: 'no-store',
+        });
+
+        if (validateRes.status === 200) {
+          // Valid key: create session and redirect to clean URL
+          session.isAuthenticated = true;
+          session.accessKey = accessKey;
+          await session.save();
+
+          const url = new URL(request.url);
+          url.searchParams.delete('key');
+          return NextResponse.redirect(url);
+        }
       }
     } catch (error) {
       // Clear any existing session on error
       try {
-        session.isAuthenticated = false;
-        session.accessKey = undefined;
-        await session.save();
+        // session may not be available here; attempt to reset via cookie deletion by redirecting
+        return NextResponse.redirect(new URL('/access-denied', request.url));
       } catch (_saveError) {
         // Ignore save errors
       }
