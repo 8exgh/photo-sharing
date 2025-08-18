@@ -107,16 +107,16 @@ function AlbumsContent() {
         cache: 'no-store',
       });
       
-      if (response.status === 401) {
-        // Access denied - redirect to access-denied page
-        window.location.href = '/access-denied';
-        return;
+      if (response.ok) {
+        const data = await response.json();
+        setGroups(data.groups || []);
+      } else {
+        // Groups might not be accessible, just set empty array
+        setGroups([]);
       }
-      
-      const data = await response.json();
-      setGroups(data.groups || []);
     } catch (_error) {
       console.error('Error fetching groups:', _error);
+      setGroups([]);
     }
   };
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getGroupMetadata, saveGroupMetadata, deleteGroup } from '@/lib/groups';
 import { join } from 'path';
 import { validateSession } from '@/lib/session';
+import { isValidAccessKey } from '@/lib/access-keys';
 
 const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
 
@@ -10,8 +11,18 @@ export async function GET(
   { params }: { params: Promise<{ year: string; groupId: string }> }
 ) {
   const sessionData = await validateSession(request);
-  if (!sessionData.isAdmin) {
+  
+  // Allow both admin users and users with valid access keys to view groups
+  if (!sessionData.isAuthenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  // For non-admin users, validate their access key
+  if (!sessionData.isAdmin && sessionData.accessKey) {
+    const keyIsValid = await isValidAccessKey(sessionData.accessKey);
+    if (!keyIsValid) {
+      return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+    }
   }
 
   try {

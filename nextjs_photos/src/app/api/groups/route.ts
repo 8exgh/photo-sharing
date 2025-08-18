@@ -5,8 +5,18 @@ import { isValidAccessKey } from '@/lib/access-keys';
 
 export async function GET(request: NextRequest) {
   const sessionData = await validateSession(request);
-  if (!sessionData.isAdmin) {
+  
+  // Allow both admin users and users with valid access keys to view groups
+  if (!sessionData.isAuthenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  // For non-admin users, validate their access key
+  if (!sessionData.isAdmin && sessionData.accessKey) {
+    const keyIsValid = await isValidAccessKey(sessionData.accessKey);
+    if (!keyIsValid) {
+      return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+    }
   }
 
   const { searchParams } = new URL(request.url);
