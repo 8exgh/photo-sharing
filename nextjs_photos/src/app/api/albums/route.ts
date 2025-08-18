@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { createAlbumDirectory, saveAlbumMetadata, getAllYears } from '@/lib/albums';
 import { getAlbumsWithGroups, moveAlbumToGroup } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
+import { isValidAccessKey } from '@/lib/access-keys';
 
 export const runtime = 'nodejs';
 
@@ -14,15 +15,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Validate access key for non-admin sessions
+    if (!session.isAdmin && session.accessKey) {
+      const keyIsValid = await isValidAccessKey(session.accessKey);
+      if (!keyIsValid) {
+        // Clear invalid session
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+      }
+    }
+    
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
     
     if (year) {
       const albums = await getAlbumsWithGroups(year);
-      return NextResponse.json({ albums });
+      return NextResponse.json(
+        { albums },
+        { 
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } else {
       const years = await getAllYears();
-      return NextResponse.json({ years });
+      return NextResponse.json(
+        { years },
+        { 
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     }
   } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

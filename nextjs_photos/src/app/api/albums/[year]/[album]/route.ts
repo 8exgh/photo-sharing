@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos, moveAlbumToYear } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
+import { isValidAccessKey } from '@/lib/access-keys';
 
 export const runtime = 'nodejs';
 
@@ -15,6 +16,18 @@ export async function GET(
     
     if (!session.isAuthenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Validate access key for non-admin sessions
+    if (!session.isAdmin && session.accessKey) {
+      const keyIsValid = await isValidAccessKey(session.accessKey);
+      if (!keyIsValid) {
+        // Clear invalid session
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+      }
     }
     
     const { year, album } = await params;
@@ -34,13 +47,22 @@ export async function GET(
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
     
-    return NextResponse.json({ 
-      metadata,
-      photos,
-      albumPath: targetAlbum.path.split('public/albums/')[1],
-      groupId: targetAlbum.groupId,
-      isNested: targetAlbum.isNested,
-    });
+    return NextResponse.json(
+      { 
+        metadata,
+        photos,
+        albumPath: targetAlbum.path.split('public/albums/')[1],
+        groupId: targetAlbum.groupId,
+        isNested: targetAlbum.isNested,
+      },
+      { 
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }

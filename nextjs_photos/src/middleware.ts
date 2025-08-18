@@ -28,40 +28,34 @@ export async function middleware(request: NextRequest) {
         },
       });
       
-      // Check if user has valid session
+      // Allow authenticated sessions (admin or with access key) to proceed
+      // Actual validation will happen in API routes
       if (session.isAuthenticated) {
         return response;
       }
       
-      // Check for access key in URL
+      // Check for access key in URL and create session
+      // Validation will happen in API routes
       const accessKey = searchParams.get('key');
       if (accessKey) {
-        // Validate access key via API call
-        try {
-          const validateResponse = await fetch(`${request.nextUrl.origin}/api/validate-key`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ key: accessKey }),
-          });
-          
-          if (validateResponse.ok) {
-            // Create session and redirect to clean URL
-            session.isAuthenticated = true;
-            session.accessKey = accessKey;
-            await session.save();
-            
-            const url = new URL(request.url);
-            url.searchParams.delete('key');
-            return NextResponse.redirect(url);
-          }
-        } catch (_error) {
-          // Fall through to access denied
-        }
+        // Create session with the key and redirect to clean URL
+        session.isAuthenticated = true;
+        session.accessKey = accessKey;
+        await session.save();
+        
+        const url = new URL(request.url);
+        url.searchParams.delete('key');
+        return NextResponse.redirect(url);
       }
-    } catch (_error) {
-      // Fall through to access denied
+    } catch (error) {
+      // Clear any existing session on error
+      try {
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+      } catch (_saveError) {
+        // Ignore save errors
+      }
     }
     
     // Redirect to access denied if no valid session or key

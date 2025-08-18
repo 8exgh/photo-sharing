@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGroupsByYear, createGroup } from '@/lib/groups';
 import { validateSession } from '@/lib/session';
+import { isValidAccessKey } from '@/lib/access-keys';
 
 export async function GET(request: NextRequest) {
   const sessionData = await validateSession(request);
@@ -17,7 +18,16 @@ export async function GET(request: NextRequest) {
 
   try {
     const groups = await getGroupsByYear(year);
-    return NextResponse.json({ groups });
+    return NextResponse.json(
+      { groups },
+      { 
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      }
+    );
   } catch (_error) {
     console.error('Error fetching groups:', _error);
     return NextResponse.json({ error: 'Failed to fetch groups' }, { status: 500 });

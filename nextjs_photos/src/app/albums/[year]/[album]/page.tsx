@@ -68,7 +68,15 @@ export default function AlbumView() {
   const fetchAlbumOrGroup = useCallback(async () => {
     try {
       // First try to fetch as a group
-      const groupResponse = await fetch(`/api/groups/${params.year}/${params.album}`);
+      const groupResponse = await fetch(`/api/groups/${params.year}/${params.album}`, {
+        cache: 'no-store',
+      });
+      
+      if (groupResponse.status === 401) {
+        // Access denied - redirect to access-denied page
+        window.location.href = '/access-denied';
+        return;
+      }
       
       if (groupResponse.ok) {
         const groupData = await groupResponse.json();
@@ -76,13 +84,31 @@ export default function AlbumView() {
         setIsGroup(true);
         
         // Fetch albums in this group
-        const albumsResponse = await fetch(`/api/albums?year=${params.year}`);
+        const albumsResponse = await fetch(`/api/albums?year=${params.year}`, {
+          cache: 'no-store',
+        });
+        
+        if (albumsResponse.status === 401) {
+          // Access denied - redirect to access-denied page
+          window.location.href = '/access-denied';
+          return;
+        }
+        
         const albumsData = await albumsResponse.json();
         const filteredAlbums = albumsData.albums.filter((album: AlbumWithGroup) => album.groupId === params.album);
         setGroupAlbums(filteredAlbums);
       } else {
         // Try to fetch as an album
-        const albumResponse = await fetch(`/api/albums/${params.year}/${params.album}`);
+        const albumResponse = await fetch(`/api/albums/${params.year}/${params.album}`, {
+          cache: 'no-store',
+        });
+        
+        if (albumResponse.status === 401) {
+          // Access denied - redirect to access-denied page
+          window.location.href = '/access-denied';
+          return;
+        }
+        
         const albumData = await albumResponse.json();
         
         if (albumResponse.ok) {

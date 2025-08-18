@@ -48,3 +48,17 @@ export async function createAccessKey(expires?: string): Promise<string> {
   
   return newKey;
 }
+
+export async function deleteAccessKey(keyToDelete: string): Promise<boolean> {
+  const keys = await getAccessKeys();
+  const initialLength = keys.length;
+  const filteredKeys = keys.filter(k => k.key !== keyToDelete);
+  
+  if (filteredKeys.length === initialLength) {
+    // Key not found
+    return false;
+  }
+  
+  await saveAccessKeys(filteredKeys);
+  return true;
+}

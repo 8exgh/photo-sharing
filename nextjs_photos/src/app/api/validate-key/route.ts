@@ -14,9 +14,28 @@ export async function POST(request: NextRequest) {
     const isValid = await isValidAccessKey(key);
     
     if (isValid) {
-      return NextResponse.json({ valid: true });
+      return NextResponse.json(
+        { valid: true },
+        { 
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     } else {
-      return NextResponse.json({ valid: false }, { status: 401 });
+      return NextResponse.json(
+        { valid: false }, 
+        { 
+          status: 401,
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          }
+        }
+      );
     }
   } catch (_error) {
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

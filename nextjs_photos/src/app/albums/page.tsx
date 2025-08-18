@@ -41,7 +41,16 @@ function AlbumsContent() {
 
   const fetchYears = useCallback(async () => {
     try {
-      const response = await fetch('/api/albums');
+      const response = await fetch('/api/albums', {
+        cache: 'no-store',
+      });
+      
+      if (response.status === 401) {
+        // Access denied - redirect to access-denied page
+        window.location.href = '/access-denied';
+        return;
+      }
+      
       const data = await response.json();
       setYears(data.years || []);
       
@@ -73,8 +82,17 @@ function AlbumsContent() {
   const fetchAlbums = async (year: string) => {
     try {
       console.log('Fetching albums for year:', year);
-      const response = await fetch(`/api/albums?year=${year}`);
+      const response = await fetch(`/api/albums?year=${year}`, {
+        cache: 'no-store',
+      });
       console.log('Albums response status:', response.status);
+      
+      if (response.status === 401) {
+        // Access denied - redirect to access-denied page
+        window.location.href = '/access-denied';
+        return;
+      }
+      
       const data = await response.json();
       console.log('Albums data received:', data);
       setAlbums(data.albums || []);
@@ -85,7 +103,16 @@ function AlbumsContent() {
 
   const fetchGroups = async (year: string) => {
     try {
-      const response = await fetch(`/api/groups?year=${year}`);
+      const response = await fetch(`/api/groups?year=${year}`, {
+        cache: 'no-store',
+      });
+      
+      if (response.status === 401) {
+        // Access denied - redirect to access-denied page
+        window.location.href = '/access-denied';
+        return;
+      }
+      
       const data = await response.json();
       setGroups(data.groups || []);
     } catch (_error) {
