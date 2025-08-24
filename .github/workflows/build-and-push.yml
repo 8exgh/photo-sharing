@@ -27,11 +27,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          cache-dependency-path: nextjs_photos/package-lock.json
       
       - name: Install dependencies
+        working-directory: ./nextjs_photos
         run: npm ci
       
       - name: Build Next.js application
+        working-directory: ./nextjs_photos
         run: npm run build
       
       - name: Set up QEMU
@@ -45,7 +48,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.DEPLOY_TOKEN }}  # Using PAT to avoid package name issues
+          password: ${{ secrets.DEPLOY_TOKEN }}
       
       - name: Generate timestamp
         id: timestamp
@@ -63,7 +66,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./nextjs_photos
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
