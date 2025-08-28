@@ -1,42 +1,190 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GroupMetadata } from '@/types';
+import { GroupMetadata, AlbumWithGroup } from '@/types';
 
-interface Album {
-  name: string;
-  path: string;
-  metadata: {
-    name: string;
-    location: string;
-    description: string;
-    created: string;
-    photos: Array<{
-      filename: string;
-      title: string;
-      uploadDate: string;
-      description: string;
-    }>;
-    videos: Array<{
-      url: string;
-      title: string;
-      addedDate: string;
-    }>;
-  } | null;
-  firstPhoto: string | null;
-  groupId?: string;
-  isNested?: boolean;
+// Component for individual album item
+function AlbumItem({ album, year }: { album: AlbumWithGroup; year: string }) {
+  return (
+    <Link
+      href={`/albums/${year}/${album.name}`}
+      className="block py-2 pl-12 pr-4 hover:bg-slate-700 rounded transition-colors"
+    >
+      <div className="text-slate-100">{album.metadata?.name || album.name}</div>
+      {album.metadata?.description && (
+        <div className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">
+          {album.metadata.description}
+        </div>
+      )}
+    </Link>
+  );
+}
+
+// Component for group section with expand/collapse
+function GroupSection({ 
+  group, 
+  albums, 
+  year,
+  isExpanded,
+  onToggle 
+}: { 
+  group: GroupMetadata; 
+  albums: AlbumWithGroup[];
+  year: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const groupAlbums = albums.filter(album => album.groupId === group.id);
+  
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="w-full text-left py-2 pl-8 pr-4 hover:bg-slate-700 rounded transition-colors flex items-center"
+      >
+        <span className="mr-2 text-slate-400 text-sm">
+          {isExpanded ? '▼' : '▶'}
+        </span>
+        <span className="text-slate-200">{group.displayName}</span>
+      </button>
+      
+      {isExpanded && (
+        <div className="ml-4">
+          {groupAlbums.map((album) => (
+            <AlbumItem key={album.path} album={album} year={year} />
+          ))}
+          {groupAlbums.length === 0 && (
+            <div className="pl-12 py-2 text-slate-500 italic">No albums in this group</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Component for year section with expand/collapse
+function YearSection({ 
+  year,
+  isExpanded,
+  onToggle
+}: { 
+  year: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const [albums, setAlbums] = useState<AlbumWithGroup[]>([]);
+  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const fetchYearData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Fetch albums
+      const albumsResponse = await fetch(`/api/albums?year=${year}`, {
+        cache: 'no-store',
+      });
+      
+      if (albumsResponse.status === 401) {
+        window.location.href = '/access-denied';
+        return;
+      }
+      
+      if (albumsResponse.ok) {
+        const albumsData = await albumsResponse.json();
+        setAlbums(albumsData.albums || []);
+      }
+      
+      // Fetch groups
+      const groupsResponse = await fetch(`/api/groups?year=${year}`, {
+        cache: 'no-store',
+      });
+      
+      if (groupsResponse.ok) {
+        const groupsData = await groupsResponse.json();
+        setGroups(groupsData.groups || []);
+      }
+    } catch (error) {
+      console.error('Error fetching year data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [year]);
+
+  useEffect(() => {
+    if (isExpanded && albums.length === 0) {
+      fetchYearData();
+    }
+  }, [isExpanded, albums.length, fetchYearData]);
+
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  // Separate ungrouped albums
+  const ungroupedAlbums = albums.filter(album => !album.groupId);
+
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className="w-full text-left py-3 px-4 hover:bg-slate-700 rounded transition-colors flex items-center text-lg"
+      >
+        <span className="mr-2 text-slate-400">
+          {isExpanded ? '▼' : '▶'}
+        </span>
+        <span className="text-slate-100 font-medium">{year}</span>
+      </button>
+      
+      {isExpanded && (
+        <div className="ml-4">
+          {loading ? (
+            <div className="pl-4 py-2 text-slate-400">Loading...</div>
+          ) : (
+            <>
+              {/* Groups */}
+              {groups.map((group) => (
+                <GroupSection
+                  key={group.id}
+                  group={group}
+                  albums={albums}
+                  year={year}
+                  isExpanded={expandedGroups.has(group.id)}
+                  onToggle={() => toggleGroup(group.id)}
+                />
+              ))}
+              
+              {/* Ungrouped albums */}
+              {ungroupedAlbums.map((album) => (
+                <div key={album.path} className="pl-4">
+                  <AlbumItem album={album} year={year} />
+                </div>
+              ))}
+              
+              {/* Empty state */}
+              {albums.length === 0 && groups.length === 0 && (
+                <div className="pl-4 py-2 text-slate-500 italic">No albums for this year</div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AlbumsContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
   const [years, setYears] = useState<string[]>([]);
-  const [selectedYear, setSelectedYear] = useState<string>('');
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const fetchYears = useCallback(async () => {
@@ -46,145 +194,57 @@ function AlbumsContent() {
       });
       
       if (response.status === 401) {
-        // Access denied - redirect to access-denied page
         window.location.href = '/access-denied';
         return;
       }
       
       const data = await response.json();
-      setYears(data.years || []);
+      // Sort years in descending order (newest first)
+      const sortedYears = (data.years || []).sort((a: string, b: string) => b.localeCompare(a));
+      setYears(sortedYears);
       
-      // Set initial year from URL parameter or default to first available year
-      const yearFromUrl = searchParams.get('year');
-      if (yearFromUrl && data.years && data.years.includes(yearFromUrl)) {
-        setSelectedYear(yearFromUrl);
-      } else if (data.years && data.years.length > 0) {
-        setSelectedYear(data.years[0]);
+      // Optionally expand the current year by default
+      if (sortedYears.length > 0) {
+        const currentYear = new Date().getFullYear().toString();
+        if (sortedYears.includes(currentYear)) {
+          setExpandedYears(new Set([currentYear]));
+        }
       }
-    } catch (_error) {
-      console.error('Error fetching years:', _error);
+    } catch (error) {
+      console.error('Error fetching years:', error);
     } finally {
       setLoading(false);
     }
-  }, [searchParams]);
+  }, []);
 
   useEffect(() => {
     fetchYears();
   }, [fetchYears]);
 
-  useEffect(() => {
-    if (selectedYear) {
-      fetchAlbums(selectedYear);
-      fetchGroups(selectedYear);
-    }
-  }, [selectedYear]);
-
-  const fetchAlbums = async (year: string) => {
-    try {
-      console.log('Fetching albums for year:', year);
-      const response = await fetch(`/api/albums?year=${year}`, {
-        cache: 'no-store',
-      });
-      console.log('Albums response status:', response.status);
-      
-      if (response.status === 401) {
-        // Access denied - redirect to access-denied page
-        window.location.href = '/access-denied';
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('Albums data received:', data);
-      setAlbums(data.albums || []);
-    } catch (_error) {
-      console.error('Error fetching albums:', _error);
-    }
-  };
-
-  const fetchGroups = async (year: string) => {
-    try {
-      const response = await fetch(`/api/groups?year=${year}`, {
-        cache: 'no-store',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setGroups(data.groups || []);
+  const toggleYear = (year: string) => {
+    setExpandedYears(prev => {
+      const next = new Set(prev);
+      if (next.has(year)) {
+        next.delete(year);
       } else {
-        // Groups might not be accessible, just set empty array
-        setGroups([]);
+        next.add(year);
       }
-    } catch (_error) {
-      console.error('Error fetching groups:', _error);
-      setGroups([]);
-    }
-  };
-
-  const handleYearChange = (year: string) => {
-    setSelectedYear(year);
-    // Update URL with year parameter
-    const params = new URLSearchParams();
-    if (year) {
-      params.set('year', year);
-    }
-    router.replace(`/albums?${params.toString()}`);
-  };
-
-  // Organize albums and groups for display
-  const organizeContent = () => {
-    const groupedAlbums = albums.filter(album => album.groupId);
-    const ungroupedAlbums = albums.filter(album => !album.groupId);
-    
-    // Create group entries for display
-    const groupEntries = groups.map(group => {
-      // Find first album in this group that has a photo
-      const groupAlbumsWithPhotos = groupedAlbums.filter(album => 
-        album.groupId === group.id && album.firstPhoto
-      );
-      const firstAlbumWithPhoto = groupAlbumsWithPhotos[0];
-      
-      return {
-        type: 'group' as const,
-        id: group.id,
-        name: group.id,
-        displayName: group.displayName,
-        isGroup: true,
-        metadata: null,
-        firstPhoto: firstAlbumWithPhoto?.firstPhoto || null,
-        firstAlbumPath: firstAlbumWithPhoto?.path || null,
-        path: '',
-        groupId: group.id,
-      };
+      return next;
     });
-
-    // Convert ungrouped albums to display format
-    const albumEntries = ungroupedAlbums.map(album => ({
-      type: 'album' as const,
-      id: album.name,
-      name: album.name,
-      displayName: album.metadata?.name || album.name,
-      isGroup: false,
-      metadata: album.metadata,
-      firstPhoto: album.firstPhoto,
-      path: album.path,
-      groupId: album.groupId,
-      isNested: album.isNested,
-    }));
-
-    return [...groupEntries, ...albumEntries];
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading albums...</div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+        <div className="text-lg text-slate-300">Loading albums...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-800">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-100 mb-2">Photo Albums</h1>
           <div className="flex items-center text-sm text-emerald-400">
@@ -195,128 +255,25 @@ function AlbumsContent() {
           </div>
         </div>
 
-        <div className="mb-6">
-          <label htmlFor="year-select" className="block text-sm font-medium text-slate-300 mb-2">
-            Select Year
-          </label>
-          <select
-            id="year-select"
-            value={selectedYear}
-            onChange={(e) => handleYearChange(e.target.value)}
-            className="px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
-          >
-            <option value="">Select Year</option>
-            {years.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
+        {/* Hierarchical Album List */}
+        <div className="bg-slate-900 rounded-lg p-4">
+          {years.length > 0 ? (
+            <div className="space-y-1">
+              {years.map((year) => (
+                <YearSection
+                  key={year}
+                  year={year}
+                  isExpanded={expandedYears.has(year)}
+                  onToggle={() => toggleYear(year)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-slate-400">No albums found</div>
+            </div>
+          )}
         </div>
-
-        {selectedYear && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {organizeContent().map((item) => {
-              if (item.type === 'group') {
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/albums/${selectedYear}/${item.name}`}
-                    className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 border-l-4 border-l-purple-500"
-                  >
-                    <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
-                      {/* Background image if available */}
-                      {item.firstPhoto && item.firstAlbumPath ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={`/api/thumbnails/${item.firstAlbumPath.split('public/albums/')[1]}/${item.firstPhoto}`}
-                          alt={`${item.displayName} preview`}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      ) : null}
-                      
-                      {/* Overlay with group icon */}
-                      <div className="relative z-10 text-center bg-black/50 p-4 rounded-lg">
-                        <svg className="h-16 w-16 text-purple-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        <span className="text-purple-300 font-medium">Group</span>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-slate-100 mb-2">
-                        {item.displayName}*
-                      </h3>
-                      <p className="text-sm text-slate-300 mb-2">
-                        Album Group
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        Click to view albums in this group
-                      </p>
-                    </div>
-                  </Link>
-                );
-              } else {
-                return (
-                  <Link
-                    key={item.path}
-                    href={`/albums/${selectedYear}/${item.name}`}
-                    className={`block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 ${item.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}
-                  >
-                    <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
-                      {item.firstPhoto ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={`/api/thumbnails/${item.path.split('public/albums/')[1]}/${item.firstPhoto}`}
-                          alt={`${item.displayName} preview`}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                      ) : (
-                        <div className="h-full flex items-center justify-center bg-slate-600">
-                          <svg className="h-16 w-16 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                        </div>
-                      )}
-                      
-                      {/* Overlay for album info on hover - positioned to not interfere with image */}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity duration-300">
-                        <p className="text-sm font-medium text-white truncate">
-                          {item.metadata?.photos?.length || 0} photos
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-4">
-                      <h3 className="text-lg font-semibold text-slate-100 mb-2">
-                        {item.displayName}
-                        {item.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
-                      </h3>
-                      {item.metadata?.location && (
-                        <p className="text-sm text-slate-300 mb-1">
-                          📍 {item.metadata.location}
-                        </p>
-                      )}
-                      {item.metadata?.description && (
-                        <p className="text-sm text-slate-300 mb-2">
-                          {item.metadata.description}
-                        </p>
-                      )}
-                      <p className="text-xs text-slate-400">
-                        Created: {item.metadata?.created ? new Date(item.metadata.created).toLocaleDateString() : 'Unknown'}
-                      </p>
-                    </div>
-                  </Link>
-                );
-              }
-            })}
-          </div>
-        )}
-
-        {selectedYear && albums.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-slate-400">No albums found for {selectedYear}</div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -325,8 +282,8 @@ function AlbumsContent() {
 export default function Albums() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading albums...</div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+        <div className="text-lg text-slate-300">Loading albums...</div>
       </div>
     }>
       <AlbumsContent />
