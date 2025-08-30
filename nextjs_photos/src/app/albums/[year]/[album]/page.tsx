@@ -420,9 +420,9 @@ export default function AlbumView() {
                         >
                           Watch Video →
                         </a>
-                        <p className="text-sm text-slate-400 mt-2">
+                        {!true &&  (<p className="text-sm text-slate-400 mt-2">
                           Added: {new Date(video.addedDate).toLocaleDateString()}
-                        </p>
+                        </p>)}
                       </div>
                     )}
                   </div>
