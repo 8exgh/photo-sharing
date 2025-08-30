@@ -19,6 +19,15 @@ interface Album {
   isNested?: boolean;
 }
 
+interface BuildInfo {
+  gitHash: string;
+  gitHashShort: string;
+  gitBranch: string;
+  buildNumber: string;
+  buildTime: string;
+  nodeEnv: string;
+}
+
 export default function AdminDashboard() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [years, setYears] = useState<string[]>([]);
@@ -29,6 +38,7 @@ export default function AdminDashboard() {
   const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string}>>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
 
   // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
   useEffect(() => {
@@ -60,6 +70,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchYears();
     fetchAccessKeys();
+    fetchBuildInfo();
   }, []);
 
   useEffect(() => {
@@ -99,6 +110,16 @@ export default function AdminDashboard() {
       setAccessKeys(data.keys || []);
     } catch (_error) {
       console.error('Error fetching access keys:', _error);
+    }
+  };
+
+  const fetchBuildInfo = async () => {
+    try {
+      const response = await fetch('/api/build-info');
+      const data = await response.json();
+      setBuildInfo(data);
+    } catch (_error) {
+      console.error('Error fetching build info:', _error);
     }
   };
 
@@ -724,6 +745,65 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        
+        {/* Build Info Footer */}
+        {buildInfo && (
+          <div className="mt-8 py-4 border-t border-slate-600">
+            <div className="text-center text-xs text-slate-500">
+              <span className="inline-flex items-center space-x-3">
+                <span>
+                  <span className="text-slate-600">Build:</span>
+                  <span className="ml-1 font-mono text-slate-400">
+                    {buildInfo.gitHashShort}
+                  </span>
+                </span>
+                
+                {buildInfo.buildNumber !== 'local' && (
+                  <span className="text-slate-600">•</span>
+                )}
+                
+                {buildInfo.buildNumber !== 'local' && (
+                  <span>
+                    <span className="text-slate-600">Run:</span>
+                    <span className="ml-1 font-mono text-slate-400">
+                      #{buildInfo.buildNumber}
+                    </span>
+                  </span>
+                )}
+                
+                {buildInfo.gitBranch !== 'unknown' && (
+                  <>
+                    <span className="text-slate-600">•</span>
+                    <span>
+                      <span className="text-slate-600">Branch:</span>
+                      <span className="ml-1 font-mono text-slate-400">
+                        {buildInfo.gitBranch}
+                      </span>
+                    </span>
+                  </>
+                )}
+                
+                <span className="text-slate-600">•</span>
+                
+                <span>
+                  <span className="text-slate-600">Built:</span>
+                  <span className="ml-1 text-slate-400">
+                    {buildInfo.buildTime !== 'unknown' 
+                      ? new Date(buildInfo.buildTime).toLocaleString()
+                      : 'unknown'}
+                  </span>
+                </span>
+                
+                {buildInfo.nodeEnv === 'development' && (
+                  <>
+                    <span className="text-slate-600">•</span>
+                    <span className="text-amber-500 font-medium">DEV MODE</span>
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -36,6 +36,11 @@ jobs:
       - name: Build Next.js application
         working-directory: ./nextjs_photos
         run: npm run build
+        env:
+          NEXT_PUBLIC_GIT_HASH: ${{ github.sha }}
+          NEXT_PUBLIC_GIT_BRANCH: ${{ github.ref_name }}
+          NEXT_PUBLIC_BUILD_NUMBER: ${{ github.run_number }}
+          NEXT_PUBLIC_BUILD_TIME: ${{ steps.timestamp.outputs.timestamp }}
       
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
