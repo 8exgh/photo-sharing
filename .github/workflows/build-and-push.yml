@@ -52,7 +52,9 @@ jobs:
       
       - name: Generate timestamp
         id: timestamp
-        run: echo "timestamp=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        run: |
+          echo "timestamp_tag=$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+          echo "timestamp_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_OUTPUT
       
       - name: Extract metadata
         id: meta
@@ -61,7 +63,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ steps.timestamp.outputs.timestamp }}
+            type=raw,value=${{ steps.timestamp.outputs.timestamp_tag }}
       
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -77,7 +79,7 @@ jobs:
             NEXT_PUBLIC_GIT_HASH=${{ github.sha }}
             NEXT_PUBLIC_GIT_BRANCH=${{ github.ref_name }}
             NEXT_PUBLIC_BUILD_NUMBER=${{ github.run_number }}
-            NEXT_PUBLIC_BUILD_TIME=${{ steps.timestamp.outputs.timestamp }}
+            NEXT_PUBLIC_BUILD_TIME=${{ steps.timestamp.outputs.timestamp_iso }}
 
       - name: Trigger deployment
         run: |
