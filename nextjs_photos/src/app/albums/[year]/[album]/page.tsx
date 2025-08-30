@@ -570,9 +570,9 @@ export default function AlbumView() {
                       
                       <div className="p-6">
                         <h2 className="text-xl font-bold text-slate-100 mb-2">{video.title}</h2>
-                        <p className="text-sm text-slate-400 mb-4">
+                        (!true && (<p className="text-sm text-slate-400 mb-4">
                           Added: {new Date(video.addedDate).toLocaleDateString()}
-                        </p>
+                        </p>)}
                         {video.text && (
                           <div className="p-4 bg-slate-700 rounded-lg">
                             <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
