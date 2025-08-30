@@ -40,7 +40,7 @@ ENV DATA_DIR=/app/data
 ENV ALBUMS_DIR=/app/data/albums
 
 # Create data directories and initial files with proper permissions
-RUN mkdir -p /app/public/uploads && \
+RUN mkdir -p /app/public/uploads /app/data /app/public/albums && \
     chown -R node:node /app/data /app/public && \
     chmod -R 755 /app/data \
     chmod -R 755 /app/public/albums
