@@ -392,9 +392,9 @@ export default function AlbumView() {
                         </div>
                         <div className="p-4">
                           <h3 className="font-semibold text-slate-100">{video.title}</h3>
-                          <p className="text-sm text-slate-400 mt-1">
+                          {!true && (<p className="text-sm text-slate-400 mt-1">
                             Added: {new Date(video.addedDate).toLocaleDateString()}
-                          </p>
+                          </p>)}
                           {video.text && (
                             <div 
                               className="mt-2 cursor-pointer text-blue-400 hover:text-blue-300 text-sm"
