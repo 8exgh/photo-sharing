@@ -40,13 +40,10 @@ ENV DATA_DIR=/app/data
 ENV ALBUMS_DIR=/app/data/albums
 
 # Create data directories and initial files with proper permissions
-RUN mkdir -p /app/data/albums /app/public/albums /app/public/uploads && \
-    touch /app/data/access-keys.json && \
-    touch /app/data/groups.json && \
-    echo "[]" > /app/data/access-keys.json && \
-    echo "[]" > /app/data/groups.json && \
+RUN mkdir -p /app/public/uploads && \
     chown -R node:node /app/data /app/public && \
-    chmod -R 755 /app/data
+    chmod -R 755 /app/data \
+    chmod -R 755 /app/public/albums
 
 # only bring over what the app needs at runtime
 COPY --from=builder /app/package*.json ./
