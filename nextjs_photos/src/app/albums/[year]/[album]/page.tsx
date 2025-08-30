@@ -593,12 +593,11 @@ export default function AlbumView() {
           {/* Right column: Text Content */}
           <div className="lg:col-span-1">
             <div className="bg-slate-700 rounded-lg p-6 sticky top-8">
-              <h2 className="text-xl font-semibold text-slate-100 mb-4">Album Information</h2>
+
               
               {/* Album Text */}
               {album?.metadata.text && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium text-slate-200 mb-2">About this Album</h3>
                   <div className="p-4 bg-slate-800 rounded-lg">
                     <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
                       {album.metadata.text}
@@ -649,11 +648,11 @@ export default function AlbumView() {
               )}
               
               {/* Album Stats */}
-              <div className="text-sm text-slate-400 space-y-1">
+              {!true && (<div  className="text-sm text-slate-400 space-y-1">
                 <p>{album?.photos.length || 0} photos</p>
                 <p>{album?.metadata.videos.length || 0} videos</p>
                 <p>Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}</p>
-              </div>
+              </div>)}
             </div>
           </div>
         </div>
