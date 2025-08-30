@@ -32,14 +32,21 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Install su-exec for dropping privileges
+RUN apk add --no-cache su-exec
+
 # Set data directory environment variables for volume mounts
 ENV DATA_DIR=/app/data
 ENV ALBUMS_DIR=/app/data/albums
 
-# Create data directories with proper permissions
-# Create both /app/data (for potential volume mount) and /app/public/albums (where app is trying to write)
+# Create data directories and initial files with proper permissions
 RUN mkdir -p /app/data/albums /app/public/albums /app/public/uploads && \
-    chown -R node:node /app/data /app/public
+    touch /app/data/access-keys.json && \
+    touch /app/data/groups.json && \
+    echo "[]" > /app/data/access-keys.json && \
+    echo "[]" > /app/data/groups.json && \
+    chown -R node:node /app/data /app/public && \
+    chmod -R 755 /app/data
 
 # only bring over what the app needs at runtime
 COPY --from=builder /app/package*.json ./
@@ -48,11 +55,16 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.env.local* ./
 COPY --from=builder /app/node_modules ./node_modules
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Ensure the copied public directory maintains correct permissions
 RUN chown -R node:node /app/public
 
-# Switch to non-root user
-USER node
+# Don't use USER directive, let entrypoint handle it
+# USER node
 
 EXPOSE 3000
-CMD ["npm", "start"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["su-exec", "node", "npm", "start"]
