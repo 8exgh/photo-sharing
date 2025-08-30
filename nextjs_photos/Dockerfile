@@ -32,12 +32,23 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Set data directory environment variables for volume mounts
+ENV DATA_DIR=/app/data
+ENV ALBUMS_DIR=/app/data/albums
+
+# Create data directories with proper permissions
+RUN mkdir -p /app/data/albums && \
+    chown -R node:node /app/data
+
 # only bring over what the app needs at runtime
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.env.local* ./
 COPY --from=builder /app/node_modules ./node_modules
+
+# Switch to non-root user
+USER node
 
 EXPOSE 3000
 CMD ["npm", "start"]

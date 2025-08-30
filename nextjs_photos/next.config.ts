@@ -29,6 +29,17 @@ const nextConfig: NextConfig = {
     // Build information - provided by CI/CD
     NEXT_PUBLIC_BUILD_NUMBER: process.env.NEXT_PUBLIC_BUILD_NUMBER || 'local',
     NEXT_PUBLIC_BUILD_TIME: process.env.NEXT_PUBLIC_BUILD_TIME || new Date().toISOString(),
+    
+    // Data storage paths - configurable for Docker volumes
+    DATA_DIR: process.env.DATA_DIR || 'data',
+    ALBUMS_DIR: process.env.ALBUMS_DIR || 'public/albums',
+  },
+  // Allow serving files from data directory
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/images': ['./data/**/*'],
+      '/api/thumbnails': ['./data/**/*'],
+    },
   },
 };
 

@@ -2,7 +2,8 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { AlbumMetadata } from '@/types';
 
-const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
+// Use environment variable for albums directory, fallback to public/albums for development
+const ALBUMS_DIR = join(process.cwd(), process.env.ALBUMS_DIR || 'public/albums');
 
 export function sanitizeAlbumName(name: string): string {
   return name

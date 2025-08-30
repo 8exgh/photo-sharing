@@ -2,7 +2,18 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { AccessKey } from '@/types';
 
-const ACCESS_KEYS_FILE = join(process.cwd(), '.access-keys.json');
+// Use environment variable for data directory, store access keys in data directory
+const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
+const ACCESS_KEYS_FILE = join(DATA_DIR, 'access-keys.json');
+
+// Ensure data directory exists
+async function ensureDataDir() {
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+  } catch (error) {
+    // Directory might already exist, that's fine
+  }
+}
 
 export async function getAccessKeys(): Promise<AccessKey[]> {
   try {
@@ -15,6 +26,7 @@ export async function getAccessKeys(): Promise<AccessKey[]> {
 }
 
 export async function saveAccessKeys(keys: AccessKey[]): Promise<void> {
+  await ensureDataDir();
   await fs.writeFile(ACCESS_KEYS_FILE, JSON.stringify(keys, null, 2));
 }
 

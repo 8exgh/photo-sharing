@@ -28,11 +28,10 @@ export async function GET(
     const filename = path[path.length - 1]; // Last element is always the filename
     const pathWithoutFilename = path.slice(0, -1); // All elements except filename
     
-    // Construct the full path to the image
+    // Construct the full path to the image using configurable albums directory
     const imagePath = join(
       process.cwd(),
-      'public',
-      'albums',
+      process.env.ALBUMS_DIR || 'public/albums',
       ...pathWithoutFilename,
       filename
     );

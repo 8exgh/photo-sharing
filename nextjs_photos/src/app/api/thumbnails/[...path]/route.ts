@@ -40,11 +40,10 @@ export async function GET(
     const filename = path[path.length - 1]; // Last element is always the filename
     const pathWithoutFilename = path.slice(0, -1); // All elements except filename
     
-    // Construct the full path to the thumbnail
+    // Construct the full path to the thumbnail using configurable albums directory
     const thumbnailPath = join(
       process.cwd(),
-      'public',
-      'albums',
+      process.env.ALBUMS_DIR || 'public/albums',
       ...pathWithoutFilename,
       'thumbnails',
       filename

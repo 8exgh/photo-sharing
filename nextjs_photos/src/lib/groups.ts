@@ -3,7 +3,8 @@ import { join } from 'path';
 import { GroupMetadata, AlbumWithGroup } from '@/types';
 import { getAlbumMetadata, getAlbumPhotos } from './albums';
 
-const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
+// Use environment variable for albums directory, fallback to public/albums for development
+const ALBUMS_DIR = join(process.cwd(), process.env.ALBUMS_DIR || 'public/albums');
 
 export function sanitizeGroupId(name: string): string {
   return name
