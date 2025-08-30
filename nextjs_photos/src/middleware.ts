@@ -3,13 +3,24 @@ import type { NextRequest } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
+
+console.log('[Middleware Session Config] Initializing with:', {
+  environment: process.env.NODE_ENV,
+  isProduction,
+  hasCustomSecret: process.env.SESSION_SECRET !== undefined,
+});
+
 const sessionConfig = {
-  password: process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long',
+  password: sessionSecret,
   cookieName: 'photo-album-session',
   cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 7, // 1 week
+    sameSite: 'lax' as const,
+    path: '/',
   },
 };
 
@@ -20,13 +31,8 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/albums')) {
     try {
       const response = NextResponse.next();
-      const session = await getIronSession<SessionData>(request, response, {
-        ...sessionConfig,
-        cookieOptions: {
-          ...sessionConfig.cookieOptions,
-          secure: false, // Allow for development
-        },
-      });
+      // Use consistent cookie settings based on environment
+      const session = await getIronSession<SessionData>(request, response, sessionConfig);
       
       // If a key is present in the URL, create a session
       // Validation will happen in the API routes
@@ -85,13 +91,8 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
     try {
       const response = NextResponse.next();
-      const session = await getIronSession<SessionData>(request, response, {
-        ...sessionConfig,
-        cookieOptions: {
-          ...sessionConfig.cookieOptions,
-          secure: false, // Allow for development
-        },
-      });
+      // Use consistent cookie settings based on environment
+      const session = await getIronSession<SessionData>(request, response, sessionConfig);
       
       if (!session.isAdmin) {
         return NextResponse.redirect(new URL('/admin/login', request.url));

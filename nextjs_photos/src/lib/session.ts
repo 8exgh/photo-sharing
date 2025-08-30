@@ -2,19 +2,51 @@ import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
 import { cookies } from 'next/headers';
 
+// Log session configuration for debugging
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
+
+console.log('[Session Config] Initializing with:', {
+  environment: process.env.NODE_ENV,
+  isProduction,
+  hasCustomSecret: process.env.SESSION_SECRET !== undefined,
+  secretLength: sessionSecret.length,
+  cookieSecure: isProduction,
+});
+
 export const sessionConfig = {
-  password: process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long',
+  password: sessionSecret,
   cookieName: 'photo-album-session',
   cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 7, // 1 week
+    sameSite: 'lax' as const, // Add explicit sameSite policy
+    path: '/', // Explicit path
   },
 };
 
 export async function getSession() {
   const cookieStore = await cookies();
-  return getIronSession<SessionData>(cookieStore, sessionConfig);
+  
+  console.log('[getSession] Retrieving session with config:', {
+    cookieName: sessionConfig.cookieName,
+    secure: sessionConfig.cookieOptions.secure,
+    httpOnly: sessionConfig.cookieOptions.httpOnly,
+    NODE_ENV: process.env.NODE_ENV,
+    hasSessionSecret: !!process.env.SESSION_SECRET,
+  });
+  
+  const session = await getIronSession<SessionData>(cookieStore, sessionConfig);
+  
+  console.log('[getSession] Session retrieved:', {
+    isAuthenticated: session.isAuthenticated,
+    isAdmin: session.isAdmin,
+    hasAccessKey: !!session.accessKey,
+    sessionKeys: Object.keys(session),
+  });
+  
+  return session;
 }
 
 export function generateAccessKey(): string {
