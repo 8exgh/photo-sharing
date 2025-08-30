@@ -39,8 +39,8 @@ function getYouTubeVideoId(url: string): string | null {
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
   ];
-  
-  for (const pattern of patterns) {
+  // TODO: testing github action, sytnax error:
+  or (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) {
       return match[1];
