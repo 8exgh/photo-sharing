@@ -73,7 +73,7 @@ export async function middleware(request: NextRequest) {
 
       // Not authenticated: no session exists
       // Access will be denied below
-    } catch (error) {
+    } catch (_error) {
       // Clear any existing session on error
       try {
         // session may not be available here; attempt to reset via cookie deletion by redirecting

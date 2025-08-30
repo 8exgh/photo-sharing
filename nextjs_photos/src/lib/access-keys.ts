@@ -10,7 +10,7 @@ const ACCESS_KEYS_FILE = join(DATA_DIR, 'access-keys.json');
 async function ensureDataDir() {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch (error) {
+  } catch (_error) {
     // Directory might already exist, that's fine
   }
 }

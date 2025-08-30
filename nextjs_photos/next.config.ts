@@ -35,11 +35,9 @@ const nextConfig: NextConfig = {
     ALBUMS_DIR: process.env.ALBUMS_DIR || 'public/albums',
   },
   // Allow serving files from data directory
-  experimental: {
-    outputFileTracingIncludes: {
-      '/api/images': ['./data/**/*'],
-      '/api/thumbnails': ['./data/**/*'],
-    },
+  outputFileTracingIncludes: {
+    '/api/images': ['./data/**/*'],
+    '/api/thumbnails': ['./data/**/*'],
   },
 };
 
