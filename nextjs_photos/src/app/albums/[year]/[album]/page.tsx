@@ -287,9 +287,9 @@ export default function AlbumView() {
                         {album.metadata.description}
                       </p>
                     )}
-                    <p className="text-xs text-slate-400">
+                    {!true &&  (<p className="text-xs text-slate-400">
                       Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-                    </p>
+                    </p>) }
                   </div>
                 </Link>
               ))}
@@ -329,10 +329,10 @@ export default function AlbumView() {
           {album?.metadata.description && (
             <p className="text-slate-300 mb-4">{album.metadata.description}</p>
           )}
-          
-          <p className="text-sm text-slate-400">
+
+          {!true && (<p className="text-sm text-slate-400">
             Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-          </p>
+          </p>)}
         </div>
 
         {/* Two-column layout */}
@@ -468,13 +468,13 @@ export default function AlbumView() {
                         return photo?.title || selectedPhoto;
                       })()}
                     </h3>
-                    
-                    <div className="text-sm text-slate-400 mb-4">
+
+                    {!true && (<div className="text-sm text-slate-400 mb-4">
                       {(() => {
                         const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
                         return photo?.uploadDate ? new Date(photo.uploadDate).toLocaleDateString() : '';
                       })()}
-                    </div>
+                    </div>)}
                     
                     <div className="flex-1 overflow-y-auto">
                       {(() => {
