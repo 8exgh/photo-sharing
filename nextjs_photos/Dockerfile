@@ -39,6 +39,7 @@ RUN apk add --no-cache su-exec
 ENV DATA_DIR=/app/data
 ENV ALBUMS_DIR=/app/data/albums
 
+
 # Create data directories and initial files with proper permissions
 RUN mkdir -p /app/public/uploads /app/data /app/public/albums && \
     chown -R node:node /app/data /app/public && \
