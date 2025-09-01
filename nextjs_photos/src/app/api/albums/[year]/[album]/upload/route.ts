@@ -78,11 +78,16 @@ export async function POST(
     // Save original file
     const buffer = await file.arrayBuffer();
     const filePath = join(albumPath, filename);
-    await fs.writeFile(filePath, Buffer.from(buffer));
+    const imageBuffer = Buffer.from(buffer);
+    await fs.writeFile(filePath, imageBuffer);
+
+    // Get image metadata using sharp
+    const imageMetadata = await sharp(imageBuffer).metadata();
+    const fileSize = imageBuffer.length;
 
     // Generate thumbnail
     const thumbnailPath = join(thumbnailsPath, filename);
-    await sharp(Buffer.from(buffer))
+    await sharp(imageBuffer)
       .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toFile(thumbnailPath);
@@ -94,6 +99,9 @@ export async function POST(
       uploadDate: new Date().toISOString(),
       description: '',
       text: '', // Initialize text field
+      width: imageMetadata.width,
+      height: imageMetadata.height,
+      fileSize: fileSize,
     };
 
     const updatedMetadata = {

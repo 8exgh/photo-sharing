@@ -4,7 +4,6 @@ import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
-import { PhotoMetadata } from '@/types';
 
 export const runtime = 'nodejs';
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import {AlbumWithGroup} from "@/types";
 
 interface AlbumData {
   metadata: {
@@ -18,6 +19,9 @@ interface AlbumData {
       uploadDate: string;
       description: string;
       text?: string;
+      width?: number;
+      height?: number;
+      fileSize?: number;
     }>;
     videos: Array<{
       url: string;
@@ -28,6 +32,22 @@ interface AlbumData {
   };
   photos: string[];
   albumPath: string;
+}
+
+// Helper function to format file size
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return 'Unknown';
+  
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+  
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
 // Helper function to extract YouTube video ID from URL
@@ -349,7 +369,7 @@ export default function AlbumContentManager() {
           const yearData = await yearResponse.json();
           
           if (yearData.albums) {
-            yearData.albums.forEach((album: any) => {
+            yearData.albums.forEach((album: AlbumWithGroup) => {
               // Don't include the current album
               if (!(year === params.year && album.name === params.album)) {
                 allAlbums.push({
@@ -399,6 +419,7 @@ export default function AlbumContentManager() {
         setMessage(data.error || 'Failed to move photo');
       }
     } catch (error) {
+      console.error('Error fetching albums:', error);
       setMessage('Network error while moving photo');
     } finally {
       setMovingPhoto(false);
@@ -409,6 +430,35 @@ export default function AlbumContentManager() {
     setShowMoveModal(false);
     setPhotoToMove(null);
     setSelectedTargetAlbum(null);
+  };
+
+  const handleMigrateMetadata = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/admin/migrate-photo-metadata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          year: params.year,
+          album: params.album,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage(`Metadata updated for ${data.updatedCount} photos`);
+        fetchAlbum(); // Refresh to show new metadata
+      } else {
+        setMessage(data.error || 'Failed to update metadata');
+      }
+    } catch (error) {
+      console.Error(error);
+      setMessage('Network error while updating metadata');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUploadPhotos = async () => {
@@ -596,7 +646,18 @@ export default function AlbumContentManager() {
         {/* Photos Section */}
         {album.metadata.photos.length > 0 ? (
           <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
-            <h2 className="text-xl font-semibold mb-4 text-slate-100">Photos ({album.metadata.photos.length})</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-slate-100">Photos ({album.metadata.photos.length})</h2>
+              {album.metadata.photos.some(p => !p.width || !p.height || !p.fileSize) && (
+                <button
+                  onClick={handleMigrateMetadata}
+                  disabled={loading}
+                  className="text-sm bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 disabled:opacity-50"
+                >
+                  Update Missing Metadata
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {album.metadata.photos.map((photo) => (
                 <div key={photo.filename} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
@@ -658,9 +719,23 @@ export default function AlbumContentManager() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-sm text-slate-400 mb-2">
-                      {new Date(photo.uploadDate).toLocaleDateString()}
-                    </p>
+                    <div className="text-sm text-slate-400 mb-2 space-y-1">
+                      <p>{new Date(photo.uploadDate).toLocaleDateString()}</p>
+                      <p className="text-xs">
+                        {photo.width && photo.height ? (
+                          <>
+                            <span className="inline-block mr-3">
+                              {photo.width} × {photo.height}px
+                            </span>
+                            <span className="inline-block">
+                              {formatFileSize(photo.fileSize)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-500">Metadata not available</span>
+                        )}
+                      </p>
+                    </div>
                     
                     {editingPhoto === photo.filename ? (
                       <div className="space-y-2">

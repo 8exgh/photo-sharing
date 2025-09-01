@@ -14,6 +14,9 @@ export interface PhotoMetadata {
   uploadDate: string;
   description: string;
   text?: string; // Multi-line photo text
+  width?: number; // Image width in pixels
+  height?: number; // Image height in pixels
+  fileSize?: number; // File size in bytes
 }
 
 export interface VideoMetadata {
