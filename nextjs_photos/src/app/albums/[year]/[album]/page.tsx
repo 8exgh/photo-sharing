@@ -465,7 +465,7 @@ export default function AlbumView() {
                     <h3 className="text-lg font-semibold text-white mb-2">
                       {(() => {
                         const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
-                        return photo?.title || selectedPhoto;
+                        return photo?.title; // If you want the photo name to default when not title, uncomment:  || selectedPhoto;
                       })()}
                     </h3>
 
@@ -481,7 +481,6 @@ export default function AlbumView() {
                         const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
                         return photo?.text ? (
                           <div>
-                            <h4 className="text-slate-300 font-medium mb-2">Description</h4>
                             <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
                               {photo.text}
                             </p>
