@@ -61,11 +61,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
-    // Generate unique filename
+    // Generate unique filename with .jpg extension
     const timestamp = Date.now();
     const originalName = file.name;
-    // const extension = originalName.split('.').pop();
-    const filename = `${timestamp}-${originalName}`;
+    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, ''); // Remove extension
+    const filename = `${timestamp}-${nameWithoutExt}.jpg`;
     
     // Ensure thumbnails directory exists
     try {
@@ -75,27 +75,49 @@ export async function POST(
       await fs.mkdir(thumbnailsPath, { recursive: true });
     }
 
-    // Save original file
+    // Get original image buffer
     const buffer = await file.arrayBuffer();
+    const originalBuffer = Buffer.from(buffer);
+
+    // Optimize the image to JPEG with max 1920px dimension
+    const optimizedBuffer = await sharp(originalBuffer)
+      .resize(1920, 1920, {
+        fit: 'inside',          // Maintains aspect ratio
+        withoutEnlargement: true // Don't upscale smaller images
+      })
+      .jpeg({
+        quality: 85,            // Sweet spot for quality/size
+        progressive: true,      // Progressive loading (better UX)
+        mozjpeg: true          // Better compression algorithm (20-30% smaller)
+      })
+      .toBuffer();
+
+    // Get metadata from the optimized image
+    const imageMetadata = await sharp(optimizedBuffer).metadata();
+    const fileSize = optimizedBuffer.length;
+
+    // Save optimized file
     const filePath = join(albumPath, filename);
-    const imageBuffer = Buffer.from(buffer);
-    await fs.writeFile(filePath, imageBuffer);
+    await fs.writeFile(filePath, optimizedBuffer);
 
-    // Get image metadata using sharp
-    const imageMetadata = await sharp(imageBuffer).metadata();
-    const fileSize = imageBuffer.length;
-
-    // Generate thumbnail
+    // Generate thumbnail with smart cropping
     const thumbnailPath = join(thumbnailsPath, filename);
-    await sharp(imageBuffer)
-      .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
-      .jpeg({ quality: 80 })
+    await sharp(originalBuffer)
+      .resize(300, 300, {
+        fit: 'cover',          // Crop to fill exact dimensions
+        position: 'entropy'    // Smart cropping to interesting parts
+      })
+      .jpeg({
+        quality: 75,           // Lower quality OK for thumbnails
+        progressive: true,
+        mozjpeg: true
+      })
       .toFile(thumbnailPath);
 
     // Update album metadata
     const photoMetadata: PhotoMetadata = {
       filename,
-      title: originalName.replace(/\.[^/.]+$/, ''), // Remove extension
+      title: nameWithoutExt, // Use the name without extension
       uploadDate: new Date().toISOString(),
       description: '',
       text: '', // Initialize text field
