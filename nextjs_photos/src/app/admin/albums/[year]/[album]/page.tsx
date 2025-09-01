@@ -81,6 +81,7 @@ export default function AlbumContentManager() {
   const [albumTitle, setAlbumTitle] = useState('');
   const [editingVideoTitle, setEditingVideoTitle] = useState<number | null>(null);
   const [videoTitle, setVideoTitle] = useState('');
+  const [scrollPosition, setScrollPosition] = useState<number | null>(null);
 
   const fetchAlbum = useCallback(async () => {
     try {
@@ -104,12 +105,22 @@ export default function AlbumContentManager() {
     fetchAlbum();
   }, [fetchAlbum]);
 
+  // Restore scroll position after data loads
+  useEffect(() => {
+    if (scrollPosition !== null && !loading) {
+      window.scrollTo(0, scrollPosition);
+      setScrollPosition(null);
+    }
+  }, [loading, scrollPosition]);
+
   const handleEditPhotoText = (filename: string, currentText: string) => {
     setEditingPhoto(filename);
     setPhotoText(currentText || '');
   };
 
   const handleSavePhotoText = async (filename: string) => {
+    // Capture current scroll position before saving
+    setScrollPosition(window.scrollY);
     setLoading(true);
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}/photos/${filename}`, {
@@ -141,6 +152,8 @@ export default function AlbumContentManager() {
   };
 
   const handleSaveVideoText = async (index: number) => {
+    // Capture current scroll position before saving
+    setScrollPosition(window.scrollY);
     setLoading(true);
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}/videos/${index}`, {
@@ -174,6 +187,8 @@ export default function AlbumContentManager() {
       return;
     }
     
+    // Capture current scroll position before saving
+    setScrollPosition(window.scrollY);
     setLoading(true);
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}/videos/${index}`, {
@@ -221,6 +236,8 @@ export default function AlbumContentManager() {
       return;
     }
     
+    // Capture current scroll position before saving
+    setScrollPosition(window.scrollY);
     setLoading(true);
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}`, {
