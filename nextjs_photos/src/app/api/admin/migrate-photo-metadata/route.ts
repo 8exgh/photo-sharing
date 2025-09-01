@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
+import { getAlbumsWithGroups } from '@/lib/groups';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
@@ -21,9 +22,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Year and album are required' }, { status: 400 });
     }
 
-    // Get the album path
-    const publicDir = join(process.cwd(), 'public', 'albums');
-    const albumPath = join(publicDir, year, album);
+    // Find the album using the group-aware function to get the correct path
+    const albums = await getAlbumsWithGroups(year);
+    const targetAlbum = albums.find(a => a.name === album);
+    
+    if (!targetAlbum) {
+      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
+    }
+    
+    const albumPath = targetAlbum.path;
     
     // Get album metadata
     const metadata = await getAlbumMetadata(albumPath);

@@ -454,7 +454,7 @@ export default function AlbumContentManager() {
         setMessage(data.error || 'Failed to update metadata');
       }
     } catch (error) {
-      console.Error(error);
+      console.error(error);
       setMessage('Network error while updating metadata');
     } finally {
       setLoading(false);
