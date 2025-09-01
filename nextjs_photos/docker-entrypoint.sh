@@ -12,5 +12,11 @@ if [ -d "/app/data" ]; then
     chmod -R 755 /app/data 2>/dev/null || true
 fi
 
+# Fix permissions for albums directory (THIS IS NEW)
+if [ -d "/app/public/albums" ]; then
+    chown -R node:node /app/public/albums 2>/dev/null || true
+    chmod -R 755 /app/public/albums 2>/dev/null || true
+fi
+
 # Execute the main command
 exec "$@"
