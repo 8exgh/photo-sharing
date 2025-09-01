@@ -84,6 +84,11 @@ export default function AlbumContentManager() {
   const [videoTitle, setVideoTitle] = useState('');
   const [scrollPosition, setScrollPosition] = useState<number | null>(null);
   const [imageRefreshKey, setImageRefreshKey] = useState(Date.now());
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [photoToMove, setPhotoToMove] = useState<{filename: string; title: string} | null>(null);
+  const [availableAlbums, setAvailableAlbums] = useState<Array<{name: string; year: string; displayName: string}>>([]);
+  const [selectedTargetAlbum, setSelectedTargetAlbum] = useState<{year: string; album: string} | null>(null);
+  const [movingPhoto, setMovingPhoto] = useState(false);
 
   const fetchAlbum = useCallback(async () => {
     try {
@@ -327,6 +332,85 @@ export default function AlbumContentManager() {
     }
   };
 
+  const handleOpenMoveModal = async (filename: string, title: string) => {
+    setPhotoToMove({ filename, title });
+    setShowMoveModal(true);
+    setSelectedTargetAlbum(null);
+    
+    // Fetch all available albums
+    try {
+      const response = await fetch('/api/albums');
+      const data = await response.json();
+      const allAlbums: Array<{name: string; year: string; displayName: string}> = [];
+      
+      if (data.years) {
+        for (const year of data.years) {
+          const yearResponse = await fetch(`/api/albums?year=${year}`);
+          const yearData = await yearResponse.json();
+          
+          if (yearData.albums) {
+            yearData.albums.forEach((album: any) => {
+              // Don't include the current album
+              if (!(year === params.year && album.name === params.album)) {
+                allAlbums.push({
+                  name: album.name,
+                  year: year,
+                  displayName: `${year} - ${album.metadata?.name || album.name}`,
+                });
+              }
+            });
+          }
+        }
+      }
+      
+      setAvailableAlbums(allAlbums);
+    } catch (error) {
+      console.error('Error fetching albums:', error);
+      setMessage('Failed to load albums');
+    }
+  };
+
+  const handleMovePhoto = async () => {
+    if (!photoToMove || !selectedTargetAlbum) return;
+    
+    setMovingPhoto(true);
+    try {
+      const response = await fetch(
+        `/api/albums/${params.year}/${params.album}/photos/${photoToMove.filename}/move`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            targetYear: selectedTargetAlbum.year,
+            targetAlbum: selectedTargetAlbum.album,
+          }),
+        }
+      );
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage(`Photo moved successfully to ${selectedTargetAlbum.year} - ${selectedTargetAlbum.album}`);
+        setShowMoveModal(false);
+        setPhotoToMove(null);
+        fetchAlbum(); // Refresh current album
+      } else {
+        setMessage(data.error || 'Failed to move photo');
+      }
+    } catch (error) {
+      setMessage('Network error while moving photo');
+    } finally {
+      setMovingPhoto(false);
+    }
+  };
+
+  const handleCloseMoveModal = () => {
+    setShowMoveModal(false);
+    setPhotoToMove(null);
+    setSelectedTargetAlbum(null);
+  };
+
   const handleUploadPhotos = async () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -529,6 +613,15 @@ export default function AlbumContentManager() {
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-semibold text-slate-100">{photo.title}</h3>
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleOpenMoveModal(photo.filename, photo.title)}
+                          className="text-green-400 hover:text-green-300"
+                          title="Move to another album"
+                        >
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                          </svg>
+                        </button>
                         <button
                           onClick={() => handleRotatePhoto(photo.filename)}
                           disabled={rotatingPhoto === photo.filename}
@@ -889,6 +982,64 @@ export default function AlbumContentManager() {
         {album.metadata.photos.length === 0 && album.metadata.videos.length === 0 && (
           <div className={`text-center py-12 ${message ? 'mt-20' : ''}`}>
             <div className="text-slate-400">No photos or videos in this album yet</div>
+          </div>
+        )}
+
+        {/* Move Photo Modal */}
+        {showMoveModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-slate-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-[80vh] flex flex-col">
+              <h2 className="text-xl font-semibold text-slate-100 mb-4">
+                Move Photo: {photoToMove?.title}
+              </h2>
+              
+              <div className="flex-1 overflow-y-auto mb-4">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select destination album:
+                </label>
+                {availableAlbums.length > 0 ? (
+                  <div className="space-y-2">
+                    {availableAlbums.map((album) => (
+                      <label
+                        key={`${album.year}-${album.name}`}
+                        className="flex items-center p-3 border border-slate-600 rounded-md hover:bg-slate-700 cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="targetAlbum"
+                          value={`${album.year}-${album.name}`}
+                          checked={selectedTargetAlbum?.year === album.year && selectedTargetAlbum?.album === album.name}
+                          onChange={() => setSelectedTargetAlbum({ year: album.year, album: album.name })}
+                          className="mr-3 text-blue-500"
+                        />
+                        <span className="text-slate-200">{album.displayName}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-slate-400 text-center py-4">
+                    No other albums available
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleCloseMoveModal}
+                  disabled={movingPhoto}
+                  className="px-4 py-2 text-slate-300 bg-slate-600 rounded-md hover:bg-slate-500 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleMovePhoto}
+                  disabled={!selectedTargetAlbum || movingPhoto}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {movingPhoto ? 'Moving...' : 'Move Photo'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
