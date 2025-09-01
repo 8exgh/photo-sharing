@@ -3,6 +3,7 @@ import { getSession } from '@/lib/session';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { isValidAccessKey } from '@/lib/access-keys';
+import { sanitizePath, sanitizeFilename, isValidImageExtension } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -34,11 +35,23 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
     }
 
+    // Sanitize all path components to prevent traversal
+    const sanitizedPath = sanitizePath(path);
+    if (!sanitizedPath) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    }
+
     // The path now includes all folder levels: [year, groupOrAlbum, album, filename]
     // Or for ungrouped albums: [year, album, filename]
     // We need to reconstruct the path dynamically
-    const filename = path[path.length - 1]; // Last element is always the filename
-    const pathWithoutFilename = path.slice(0, -1); // All elements except filename
+    const filename = sanitizedPath[sanitizedPath.length - 1]; // Last element is always the filename
+    const pathWithoutFilename = sanitizedPath.slice(0, -1); // All elements except filename
+    
+    // Additional validation for filename
+    const cleanFilename = sanitizeFilename(filename);
+    if (!cleanFilename || !isValidImageExtension(cleanFilename)) {
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
+    }
     
     // Construct the full path to the thumbnail using configurable albums directory
     const thumbnailPath = join(
@@ -46,7 +59,7 @@ export async function GET(
       process.env.ALBUMS_DIR || 'public/albums',
       ...pathWithoutFilename,
       'thumbnails',
-      filename
+      cleanFilename
     );
 
     try {

@@ -4,6 +4,7 @@ import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
+import { sanitizeYear, sanitizeAlbumName, sanitizeFilename, isValidImageExtension } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -20,6 +21,19 @@ export async function POST(
     
     const { year, album, filename } = await params;
     
+    // Sanitize inputs to prevent path traversal
+    const cleanYear = sanitizeYear(year);
+    const cleanAlbum = sanitizeAlbumName(album);
+    const cleanFilename = sanitizeFilename(filename);
+    
+    if (!cleanYear || !cleanAlbum || !cleanFilename) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+    
+    if (!isValidImageExtension(cleanFilename)) {
+      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
+    }
+    
     // Find the album using the group-aware function to get the correct path
     const albums = await getAlbumsWithGroups(year);
     const targetAlbum = albums.find(a => a.name === album);
@@ -29,8 +43,8 @@ export async function POST(
     }
     
     const albumPath = targetAlbum.path;
-    const photoPath = join(albumPath, filename);
-    const thumbnailPath = join(albumPath, 'thumbnails', filename);
+    const photoPath = join(albumPath, cleanFilename);
+    const thumbnailPath = join(albumPath, 'thumbnails', cleanFilename);
     
     // Check if files exist
     try {
@@ -58,7 +72,7 @@ export async function POST(
       await fs.writeFile(thumbnailPath, rotatedThumbnailBuffer);
     } catch {
       // Thumbnail doesn't exist or couldn't be rotated - not critical
-      console.log('Thumbnail rotation skipped:', filename);
+      console.log('Thumbnail rotation skipped:', cleanFilename);
     }
     
     return NextResponse.json({ 

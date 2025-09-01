@@ -4,6 +4,7 @@ import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
+import { sanitizeYear, sanitizeAlbumName, sanitizeFilename, isValidImageExtension } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -20,6 +21,22 @@ export async function POST(
     
     const { targetYear, targetAlbum } = await request.json();
     const { year: sourceYear, album: sourceAlbum, filename } = await params;
+    
+    // Sanitize all inputs to prevent path traversal
+    const cleanSourceYear = sanitizeYear(sourceYear);
+    const cleanSourceAlbum = sanitizeAlbumName(sourceAlbum);
+    const cleanFilename = sanitizeFilename(filename);
+    const cleanTargetYear = sanitizeYear(targetYear);
+    const cleanTargetAlbum = sanitizeAlbumName(targetAlbum);
+    
+    if (!cleanSourceYear || !cleanSourceAlbum || !cleanFilename || 
+        !cleanTargetYear || !cleanTargetAlbum) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+    
+    if (!isValidImageExtension(cleanFilename)) {
+      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
+    }
     
     // Don't move to the same album
     if (sourceYear === targetYear && sourceAlbum === targetAlbum) {
@@ -52,7 +69,7 @@ export async function POST(
     }
     
     // Find the photo in source metadata
-    const photoIndex = sourceMetadata.photos.findIndex(p => p.filename === filename);
+    const photoIndex = sourceMetadata.photos.findIndex(p => p.filename === cleanFilename);
     if (photoIndex === -1) {
       return NextResponse.json({ error: 'Photo not found in source album' }, { status: 404 });
     }
@@ -66,19 +83,19 @@ export async function POST(
     }
     
     // Check if file already exists in target
-    const targetPhotoPath = join(targetAlbumPath, filename);
+    const targetPhotoPath = join(targetAlbumPath, cleanFilename);
     try {
       await fs.access(targetPhotoPath);
       // File exists, generate new filename
       const timestamp = Date.now();
-      const newFilename = `${timestamp}-${filename}`;
+      const newFilename = `${timestamp}-${cleanFilename}`;
       photoMetadata.filename = newFilename;
     } catch {
       // File doesn't exist, keep original filename
     }
     
     // Move the photo file
-    const sourcePhotoPath = join(sourceAlbumPath, filename);
+    const sourcePhotoPath = join(sourceAlbumPath, cleanFilename);
     const finalTargetPhotoPath = join(targetAlbumPath, photoMetadata.filename);
     
     try {
@@ -91,7 +108,7 @@ export async function POST(
     }
     
     // Move the thumbnail if it exists
-    const sourceThumbnailPath = join(sourceAlbumPath, 'thumbnails', filename);
+    const sourceThumbnailPath = join(sourceAlbumPath, 'thumbnails', cleanFilename);
     const targetThumbnailDir = join(targetAlbumPath, 'thumbnails');
     const finalTargetThumbnailPath = join(targetThumbnailDir, photoMetadata.filename);
     

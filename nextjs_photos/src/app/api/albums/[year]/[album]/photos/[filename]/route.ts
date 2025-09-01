@@ -4,6 +4,7 @@ import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
+import { sanitizeYear, sanitizeAlbumName, sanitizeFilename, isValidImageExtension } from '@/lib/security';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,19 @@ export async function PUT(
     const { text } = await request.json();
     const { year, album, filename } = await params;
     
+    // Sanitize inputs to prevent path traversal
+    const cleanYear = sanitizeYear(year);
+    const cleanAlbum = sanitizeAlbumName(album);
+    const cleanFilename = sanitizeFilename(filename);
+    
+    if (!cleanYear || !cleanAlbum || !cleanFilename) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+    
+    if (!isValidImageExtension(cleanFilename)) {
+      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
+    }
+    
     // Find the album using the group-aware function to get the correct path
     const albums = await getAlbumsWithGroups(year);
     const targetAlbum = albums.find(a => a.name === album);
@@ -35,7 +49,7 @@ export async function PUT(
     }
     
     // Find the photo in the metadata
-    const photoIndex = existingMetadata.photos.findIndex(p => p.filename === filename);
+    const photoIndex = existingMetadata.photos.findIndex(p => p.filename === cleanFilename);
     if (photoIndex === -1) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
     }
@@ -77,6 +91,19 @@ export async function DELETE(
     
     const { year, album, filename } = await params;
     
+    // Sanitize inputs to prevent path traversal
+    const cleanYear = sanitizeYear(year);
+    const cleanAlbum = sanitizeAlbumName(album);
+    const cleanFilename = sanitizeFilename(filename);
+    
+    if (!cleanYear || !cleanAlbum || !cleanFilename) {
+      return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
+    }
+    
+    if (!isValidImageExtension(cleanFilename)) {
+      return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
+    }
+    
     // Find the album using the group-aware function
     const albums = await getAlbumsWithGroups(year);
     const targetAlbum = albums.find(a => a.name === album);
@@ -86,8 +113,8 @@ export async function DELETE(
     }
     
     const albumPath = targetAlbum.path;
-    const photoPath = join(albumPath, filename);
-    const thumbnailPath = join(albumPath, 'thumbnails', filename);
+    const photoPath = join(albumPath, cleanFilename);
+    const thumbnailPath = join(albumPath, 'thumbnails', cleanFilename);
     
     // Get existing metadata
     const existingMetadata = await getAlbumMetadata(albumPath);
@@ -96,7 +123,7 @@ export async function DELETE(
     }
     
     // Find the photo in the metadata
-    const photoIndex = existingMetadata.photos.findIndex(p => p.filename === filename);
+    const photoIndex = existingMetadata.photos.findIndex(p => p.filename === cleanFilename);
     if (photoIndex === -1) {
       return NextResponse.json({ error: 'Photo not found in metadata' }, { status: 404 });
     }
