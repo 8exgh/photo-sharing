@@ -5,26 +5,11 @@ import { cookies } from 'next/headers';
 // Log session configuration for debugging
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Validate SESSION_SECRET in production
-if (isProduction) {
-  if (!process.env.SESSION_SECRET) {
-    throw new Error(
-      '[SECURITY ERROR] SESSION_SECRET environment variable is required in production. ' +
-      'Please set SESSION_SECRET to a secure random string of at least 32 characters.'
-    );
-  }
+// Use sessionSecret without validation at module level (for build compatibility)
+const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
 
-  if (process.env.SESSION_SECRET.length < 32) {
-    throw new Error(
-      `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production. ` +
-      `Current length: ${process.env.SESSION_SECRET.length} characters.`
-    );
-  }
-}
-
-const sessionSecret = isProduction
-  ? process.env.SESSION_SECRET! // Safe to use ! because we validated above
-  : (process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long');
+// Track if we've validated the secret (only validate once per runtime)
+let hasValidatedSecret = false;
 
 console.log('[Session Config] Initializing with:', {
   environment: process.env.NODE_ENV,
@@ -47,8 +32,27 @@ export const sessionConfig = {
 };
 
 export async function getSession() {
+  // Validate SESSION_SECRET on first runtime use in production
+  if (isProduction && !hasValidatedSecret) {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error(
+        '[SECURITY ERROR] SESSION_SECRET environment variable is required in production. ' +
+        'Please set SESSION_SECRET to a secure random string of at least 32 characters.'
+      );
+    }
+
+    if (process.env.SESSION_SECRET.length < 32) {
+      throw new Error(
+        `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production. ` +
+        `Current length: ${process.env.SESSION_SECRET.length} characters.`
+      );
+    }
+    hasValidatedSecret = true;
+    console.log('[getSession] SESSION_SECRET validated successfully');
+  }
+
   const cookieStore = await cookies();
-  
+
   console.log('[getSession] Retrieving session with config:', {
     cookieName: sessionConfig.cookieName,
     secure: sessionConfig.cookieOptions.secure,
@@ -56,16 +60,16 @@ export async function getSession() {
     NODE_ENV: process.env.NODE_ENV,
     hasSessionSecret: !!process.env.SESSION_SECRET,
   });
-  
+
   const session = await getIronSession<SessionData>(cookieStore, sessionConfig);
-  
+
   console.log('[getSession] Session retrieved:', {
     isAuthenticated: session.isAuthenticated,
     isAdmin: session.isAdmin,
     hasAccessKey: !!session.accessKey,
     sessionKeys: Object.keys(session),
   });
-  
+
   return session;
 }
 

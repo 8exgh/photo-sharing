@@ -5,26 +5,32 @@ import { SessionData } from '@/types';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Validate SESSION_SECRET in production
-if (isProduction) {
-  if (!process.env.SESSION_SECRET) {
-    throw new Error(
-      '[SECURITY ERROR] SESSION_SECRET environment variable is required in production. ' +
-      'Please set SESSION_SECRET to a secure random string of at least 32 characters.'
-    );
-  }
+// Use sessionSecret without validation at module level (for build compatibility)
+const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
 
-  if (process.env.SESSION_SECRET.length < 32) {
-    throw new Error(
-      `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production. ` +
-      `Current length: ${process.env.SESSION_SECRET.length} characters.`
-    );
+// Track if we've validated the secret (only validate once per runtime)
+let hasValidatedSecret = false;
+
+// Function to validate SESSION_SECRET at runtime
+function validateSessionSecret() {
+  if (isProduction && !hasValidatedSecret) {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error(
+        '[SECURITY ERROR] SESSION_SECRET environment variable is required in production. ' +
+        'Please set SESSION_SECRET to a secure random string of at least 32 characters.'
+      );
+    }
+
+    if (process.env.SESSION_SECRET.length < 32) {
+      throw new Error(
+        `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production. ` +
+        `Current length: ${process.env.SESSION_SECRET.length} characters.`
+      );
+    }
+    hasValidatedSecret = true;
+    console.log('[Middleware] SESSION_SECRET validated successfully');
   }
 }
-
-const sessionSecret = isProduction
-  ? process.env.SESSION_SECRET! // Safe to use ! because we validated above
-  : (process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long');
 
 console.log('[Middleware Session Config] Initializing with:', {
   environment: process.env.NODE_ENV,
@@ -46,8 +52,11 @@ const sessionConfig = {
 };
 
 export async function middleware(request: NextRequest) {
+  // Validate SESSION_SECRET on first request in production
+  validateSessionSecret();
+
   const { pathname, searchParams } = request.nextUrl;
-  
+
   // Protect /albums routes
   if (pathname.startsWith('/albums')) {
     try {
