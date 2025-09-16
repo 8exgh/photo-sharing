@@ -4,12 +4,33 @@ import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
+
+// Validate SESSION_SECRET in production
+if (isProduction) {
+  if (!process.env.SESSION_SECRET) {
+    throw new Error(
+      '[SECURITY ERROR] SESSION_SECRET environment variable is required in production. ' +
+      'Please set SESSION_SECRET to a secure random string of at least 32 characters.'
+    );
+  }
+
+  if (process.env.SESSION_SECRET.length < 32) {
+    throw new Error(
+      `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production. ` +
+      `Current length: ${process.env.SESSION_SECRET.length} characters.`
+    );
+  }
+}
+
+const sessionSecret = isProduction
+  ? process.env.SESSION_SECRET! // Safe to use ! because we validated above
+  : (process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long');
 
 console.log('[Middleware Session Config] Initializing with:', {
   environment: process.env.NODE_ENV,
   isProduction,
   hasCustomSecret: process.env.SESSION_SECRET !== undefined,
+  secretLength: sessionSecret.length,
 });
 
 const sessionConfig = {
