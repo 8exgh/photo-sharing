@@ -58,21 +58,26 @@ export async function POST(
     const rotatedPhotoBuffer = await sharp(photoBuffer)
       .rotate(90) // Rotate 90 degrees clockwise
       .toBuffer();
-    
+
     await fs.writeFile(photoPath, rotatedPhotoBuffer);
-    
-    // Rotate the thumbnail if it exists
+
+    // Regenerate the thumbnail from the rotated image
+    // This ensures proper cropping and framing for the new orientation
     try {
-      await fs.access(thumbnailPath);
-      const thumbnailBuffer = await fs.readFile(thumbnailPath);
-      const rotatedThumbnailBuffer = await sharp(thumbnailBuffer)
-        .rotate(90) // Rotate 90 degrees clockwise
-        .toBuffer();
-      
-      await fs.writeFile(thumbnailPath, rotatedThumbnailBuffer);
-    } catch {
-      // Thumbnail doesn't exist or couldn't be rotated - not critical
-      console.log('Thumbnail rotation skipped:', cleanFilename);
+      await sharp(rotatedPhotoBuffer)
+        .resize(300, 300, {
+          fit: 'cover',          // Crop to fill exact dimensions
+          position: 'entropy'    // Smart cropping to interesting parts
+        })
+        .jpeg({
+          quality: 75,           // Lower quality OK for thumbnails
+          progressive: true,
+          mozjpeg: true
+        })
+        .toFile(thumbnailPath);
+    } catch (error) {
+      // If thumbnail generation fails, log it but don't fail the whole operation
+      console.error('Failed to regenerate thumbnail after rotation:', cleanFilename, error);
     }
     
     return NextResponse.json({ 
