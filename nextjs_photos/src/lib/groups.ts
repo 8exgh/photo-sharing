@@ -88,26 +88,27 @@ export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[
   try {
     const yearPath = join(ALBUMS_DIR, year);
     const items = await fs.readdir(yearPath);
-    
-    const albums: AlbumWithGroup[] = [];
-    
+
+    const groupedAlbums: AlbumWithGroup[] = [];
+    const ungroupedAlbums: AlbumWithGroup[] = [];
+
     for (const itemName of items) {
       const itemPath = join(yearPath, itemName);
       const stats = await fs.stat(itemPath);
-      
+
       if (stats.isDirectory()) {
         const groupMetadata = await getGroupMetadata(itemPath);
-        
+
         if (groupMetadata) {
           const groupAlbums = await getAlbumsInGroup(itemPath, groupMetadata.id);
-          albums.push(...groupAlbums);
+          groupedAlbums.push(...groupAlbums);
         } else {
           const albumMetadata = await getAlbumMetadata(itemPath);
           if (albumMetadata) {
             const photos = await getAlbumPhotos(itemPath);
             const firstPhoto = photos.length > 0 ? photos[0] : null;
-            
-            albums.push({
+
+            ungroupedAlbums.push({
               name: itemName,
               path: itemPath,
               metadata: albumMetadata,
@@ -117,8 +118,20 @@ export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[
         }
       }
     }
-    
-    return albums;
+
+    // Sort ungrouped albums by displayOrder if available, otherwise by description (descending)
+    ungroupedAlbums.sort((a, b) => {
+      if (a.metadata?.displayOrder !== undefined && b.metadata?.displayOrder !== undefined) {
+        return a.metadata.displayOrder - b.metadata.displayOrder;
+      }
+      // Default to description descending if no displayOrder
+      const descA = a.metadata?.description || '';
+      const descB = b.metadata?.description || '';
+      return descB.localeCompare(descA);
+    });
+
+    // Return grouped albums first, then ungrouped
+    return [...groupedAlbums, ...ungroupedAlbums];
   } catch (_error) {
     return [];
   }
@@ -128,22 +141,22 @@ export async function getAlbumsInGroup(groupPath: string, groupId: string): Prom
   try {
     const items = await fs.readdir(groupPath);
     const groupMetadata = await getGroupMetadata(groupPath);
-    
+
     const albums = await Promise.all(
       items.map(async (itemName) => {
         if (itemName === 'group.json') return null;
-        
+
         const itemPath = join(groupPath, itemName);
         const stats = await fs.stat(itemPath);
-        
+
         if (stats.isDirectory()) {
           const albumMetadata = await getAlbumMetadata(itemPath);
           if (albumMetadata) {
             const photos = await getAlbumPhotos(itemPath);
             const firstPhoto = photos.length > 0 ? photos[0] : null;
-            
+
             const isNested = groupMetadata?.nestedAlbums?.includes(itemName) || false;
-            
+
             return {
               name: itemName,
               path: itemPath,
@@ -157,8 +170,21 @@ export async function getAlbumsInGroup(groupPath: string, groupId: string): Prom
         return null;
       })
     );
-    
-    return albums.filter(Boolean) as AlbumWithGroup[];
+
+    const filteredAlbums = albums.filter(Boolean) as AlbumWithGroup[];
+
+    // Sort albums within group by displayOrder if available, otherwise by description (descending)
+    filteredAlbums.sort((a, b) => {
+      if (a.metadata?.displayOrder !== undefined && b.metadata?.displayOrder !== undefined) {
+        return a.metadata.displayOrder - b.metadata.displayOrder;
+      }
+      // Default to description descending if no displayOrder
+      const descA = a.metadata?.description || '';
+      const descB = b.metadata?.description || '';
+      return descB.localeCompare(descA);
+    });
+
+    return filteredAlbums;
   } catch (_error) {
     return [];
   }

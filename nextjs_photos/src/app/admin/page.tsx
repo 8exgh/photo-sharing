@@ -338,6 +338,36 @@ export default function AdminDashboard() {
     setAlbumText('');
   };
 
+  const handleReorderAlbum = async (album: Album, direction: 'up' | 'down') => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/albums/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          year: selectedYear,
+          albumPath: album.path,
+          direction,
+          groupId: album.groupId,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage(`Album moved ${direction} successfully`);
+        fetchAlbums(selectedYear);
+      } else {
+        setMessage(data.error || 'Failed to reorder album');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMoveAlbum = async (albumPath: string, targetGroupId: string) => {
     setLoading(true);
     try {
@@ -578,24 +608,49 @@ export default function AdminDashboard() {
               </div>
 
               <div className="space-y-4">
-                {filteredAlbums.map((album) => (
+                {filteredAlbums.map((album, index) => (
                   <div key={album.path} className={`border border-slate-600 rounded-md p-4 bg-slate-800 ${album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}>
                     <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg text-slate-100">
-                          {album.metadata?.name || album.name}
-                          {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
-                        </h3>
-                        <p className="text-slate-300">{album.metadata?.location}</p>
-                        <p className="text-slate-300">{album.metadata?.description}</p>
-                        <p className="text-sm text-slate-400">
-                          Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-                        </p>
-                        {album.groupId && (
-                          <p className="text-sm text-purple-400">
-                            Group: {groups.find(g => g.id === album.groupId)?.displayName || album.groupId}
+                      <div className="flex items-start space-x-2">
+                        {/* Up/Down controls */}
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={() => handleReorderAlbum(album, 'up')}
+                            disabled={index === 0}
+                            className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move up"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleReorderAlbum(album, 'down')}
+                            disabled={index === filteredAlbums.length - 1}
+                            className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Move down"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg text-slate-100">
+                            {album.metadata?.name || album.name}
+                            {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                          </h3>
+                          <p className="text-slate-300">{album.metadata?.location}</p>
+                          <p className="text-slate-300">{album.metadata?.description}</p>
+                          <p className="text-sm text-slate-400">
+                            Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
                           </p>
-                        )}
+                          {album.groupId && (
+                            <p className="text-sm text-purple-400">
+                              Group: {groups.find(g => g.id === album.groupId)?.displayName || album.groupId}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="ml-4">
                         <select

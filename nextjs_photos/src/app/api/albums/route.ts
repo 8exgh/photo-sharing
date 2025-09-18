@@ -159,7 +159,19 @@ export async function POST(request: NextRequest) {
     if (groupId) {
       albumPath = await moveAlbumToGroup(albumPath, year, groupId);
     }
-    
+
+    // Get existing albums to determine displayOrder
+    const existingAlbums = await getAlbumsWithGroups(year);
+    const contextAlbums = groupId
+      ? existingAlbums.filter(a => a.groupId === groupId)
+      : existingAlbums.filter(a => !a.groupId);
+
+    // Assign the next displayOrder (add to the end)
+    const maxOrder = contextAlbums.reduce((max, album) => {
+      const order = album.metadata?.displayOrder ?? -1;
+      return order > max ? order : max;
+    }, -1);
+
     const metadata: AlbumMetadata = {
       name,
       location: location || '',
@@ -168,6 +180,7 @@ export async function POST(request: NextRequest) {
       created: new Date().toISOString(),
       photos: [],
       videos: [],
+      displayOrder: maxOrder + 1,
     };
     
     await saveAlbumMetadata(albumPath, metadata);

@@ -6,6 +6,7 @@ export interface AlbumMetadata {
   created: string;
   photos: PhotoMetadata[];
   videos: VideoMetadata[];
+  displayOrder?: number; // For manual sorting in admin
 }
 
 export interface PhotoMetadata {
