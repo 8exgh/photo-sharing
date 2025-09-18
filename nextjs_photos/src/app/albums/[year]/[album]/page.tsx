@@ -279,7 +279,17 @@ export default function AlbumView() {
                     </h3>
                     {album.metadata?.location && (
                       <p className="text-sm text-slate-300 mb-1">
-                        📍 {album.metadata.location}
+                        📍{' '}
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(album.metadata.location)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-blue-400 hover:underline transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                          title="Open in Google Maps"
+                        >
+                          {album.metadata.location}
+                        </a>
                       </p>
                     )}
                     {album.metadata?.description && (
@@ -323,7 +333,18 @@ export default function AlbumView() {
           </h1>
           
           {album?.metadata.location && (
-            <p className="text-slate-300 mb-2">📍 {album.metadata.location}</p>
+            <p className="text-slate-300 mb-2">
+              📍{' '}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(album.metadata.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-blue-400 hover:underline transition-colors"
+                title="Open in Google Maps"
+              >
+                {album.metadata.location}
+              </a>
+            </p>
           )}
           
           {album?.metadata.description && (
