@@ -161,14 +161,15 @@ function YearSection({
               {/* Render items in unified order */}
               {unifiedItems.map((item) => {
                 if (item.type === 'group' && item.group) {
+                  const group = item.group;
                   return (
                     <GroupSection
                       key={item.id}
-                      group={item.group}
+                      group={group}
                       albums={item.albumsInGroup || []}
                       year={year}
-                      isExpanded={expandedGroups.has(item.group.id)}
-                      onToggle={() => toggleGroup(item.group.id)}
+                      isExpanded={expandedGroups.has(group.id)}
+                      onToggle={() => toggleGroup(group.id)}
                     />
                   );
                 } else if (item.type === 'album' && item.album) {
