@@ -160,17 +160,28 @@ export async function POST(request: NextRequest) {
       albumPath = await moveAlbumToGroup(albumPath, year, groupId);
     }
 
-    // Get existing albums to determine displayOrder
-    const existingAlbums = await getAlbumsWithGroups(year);
-    const contextAlbums = groupId
-      ? existingAlbums.filter(a => a.groupId === groupId)
-      : existingAlbums.filter(a => !a.groupId);
+    // Determine displayOrder based on context
+    let displayOrder = 0;
 
-    // Assign the next displayOrder (add to the end)
-    const maxOrder = contextAlbums.reduce((max, album) => {
-      const order = album.metadata?.displayOrder ?? -1;
-      return order > max ? order : max;
-    }, -1);
+    if (groupId) {
+      // For albums in groups, use group-specific ordering
+      const existingAlbums = await getAlbumsWithGroups(year);
+      const groupAlbums = existingAlbums.filter(a => a.groupId === groupId);
+      const maxOrder = groupAlbums.reduce((max, album) => {
+        const order = album.metadata?.displayOrder ?? -1;
+        return order > max ? order : max;
+      }, -1);
+      displayOrder = maxOrder + 1;
+    } else {
+      // For ungrouped albums, use unified ordering
+      const { getUnifiedYearItems } = await import('@/lib/groups');
+      const existingItems = await getUnifiedYearItems(year);
+      const maxOrder = existingItems.reduce((max, item) => {
+        const order = item.displayOrder ?? -1;
+        return order > max ? order : max;
+      }, -1);
+      displayOrder = maxOrder + 1;
+    }
 
     const metadata: AlbumMetadata = {
       name,
@@ -180,7 +191,7 @@ export async function POST(request: NextRequest) {
       created: new Date().toISOString(),
       photos: [],
       videos: [],
-      displayOrder: maxOrder + 1,
+      displayOrder: displayOrder,
     };
     
     await saveAlbumMetadata(albumPath, metadata);

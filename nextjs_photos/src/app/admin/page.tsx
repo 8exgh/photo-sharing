@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { GroupMetadata } from '@/types';
+import type { UnifiedYearItem } from '@/lib/groups';
 
 interface Album {
   name: string;
@@ -33,6 +34,7 @@ export default function AdminDashboard() {
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [unifiedItems, setUnifiedItems] = useState<UnifiedYearItem[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string}>>([]);
@@ -77,6 +79,7 @@ export default function AdminDashboard() {
     if (selectedYear) {
       fetchAlbums(selectedYear);
       fetchGroups(selectedYear);
+      fetchUnifiedItems(selectedYear);
     }
   }, [selectedYear]);
 
@@ -130,6 +133,16 @@ export default function AdminDashboard() {
       setGroups(data.groups || []);
     } catch (_error) {
       console.error('Error fetching groups:', _error);
+    }
+  };
+
+  const fetchUnifiedItems = async (year: string) => {
+    try {
+      const response = await fetch(`/api/items?year=${year}`);
+      const data = await response.json();
+      setUnifiedItems(data.items || []);
+    } catch (_error) {
+      console.error('Error fetching unified items:', _error);
     }
   };
 
@@ -368,28 +381,30 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleReorderGroup = async (groupId: string, direction: 'up' | 'down') => {
+  const handleReorderUnified = async (itemId: string, itemType: 'group' | 'album', direction: 'up' | 'down') => {
     setLoading(true);
     try {
-      const response = await fetch('/api/groups/reorder', {
+      const response = await fetch('/api/items/reorder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           year: selectedYear,
-          groupId,
+          itemId,
+          itemType,
           direction,
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(`Group moved ${direction} successfully`);
+        setMessage(data.message || `Item moved ${direction} successfully`);
+        fetchUnifiedItems(selectedYear);
+        fetchAlbums(selectedYear);
         fetchGroups(selectedYear);
-        fetchAlbums(selectedYear); // Refresh albums to show new group order
       } else {
-        setMessage(data.error || 'Failed to reorder group');
+        setMessage(data.error || 'Failed to reorder item');
       }
     } catch (_error) {
       setMessage('Network error');
@@ -508,17 +523,19 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {/* Groups Management Section */}
-              {groups.length > 0 && (
+              {/* Unified Order Management */}
+              {unifiedItems.length > 0 && selectedGroup === 'all' && (
                 <div className="mb-6 p-4 border border-slate-600 rounded-md bg-slate-800">
-                  <h3 className="text-lg font-semibold text-slate-100 mb-4">Groups Order</h3>
+                  <h3 className="text-lg font-semibold text-slate-100 mb-4">Display Order</h3>
                   <div className="space-y-2">
-                    {groups.map((group, index) => (
-                      <div key={group.id} className="flex items-center justify-between p-2 border border-slate-700 rounded bg-slate-900">
+                    {unifiedItems.map((item, index) => (
+                      <div key={item.id} className={`flex items-center justify-between p-2 border rounded ${
+                        item.type === 'group' ? 'border-purple-600 bg-purple-900/20' : 'border-slate-700 bg-slate-900'
+                      }`}>
                         <div className="flex items-center space-x-3">
                           <div className="flex flex-col space-y-1">
                             <button
-                              onClick={() => handleReorderGroup(group.id, 'up')}
+                              onClick={() => handleReorderUnified(item.id, item.type, 'up')}
                               disabled={index === 0}
                               className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
                               title="Move up"
@@ -528,8 +545,8 @@ export default function AdminDashboard() {
                               </svg>
                             </button>
                             <button
-                              onClick={() => handleReorderGroup(group.id, 'down')}
-                              disabled={index === groups.length - 1}
+                              onClick={() => handleReorderUnified(item.id, item.type, 'down')}
+                              disabled={index === unifiedItems.length - 1}
                               className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
                               title="Move down"
                             >
@@ -538,15 +555,32 @@ export default function AdminDashboard() {
                               </svg>
                             </button>
                           </div>
-                          <div>
-                            <span className="text-slate-100 font-medium">{group.displayName}</span>
-                            {group.description && (
-                              <span className="text-slate-400 text-sm ml-2">- {group.description}</span>
+                          <div className="flex items-center space-x-2">
+                            {item.type === 'group' ? (
+                              <>
+                                <span className="text-purple-400">📁</span>
+                                <div>
+                                  <span className="text-slate-100 font-medium">{item.group?.displayName}</span>
+                                  {item.group?.description && (
+                                    <span className="text-slate-400 text-sm ml-2">- {item.group.description}</span>
+                                  )}
+                                  <span className="text-purple-300 text-sm ml-2">
+                                    ({item.albumsInGroup?.length || 0} albums)
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-blue-400">📷</span>
+                                <div>
+                                  <span className="text-slate-100">{item.album?.metadata?.name || item.album?.name}</span>
+                                  {item.album?.metadata?.description && (
+                                    <span className="text-slate-400 text-sm ml-2">- {item.album.metadata.description}</span>
+                                  )}
+                                </div>
+                              </>
                             )}
                           </div>
-                        </div>
-                        <div className="text-slate-400 text-sm">
-                          {group.albumCount} album{group.albumCount !== 1 ? 's' : ''}
                         </div>
                       </div>
                     ))}

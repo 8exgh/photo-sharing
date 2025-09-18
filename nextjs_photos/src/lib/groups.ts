@@ -97,65 +97,20 @@ export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
 
 export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[]> {
   try {
-    const yearPath = join(ALBUMS_DIR, year);
-
-    // Get sorted groups first
-    const groups = await getGroupsByYear(year);
-    const groupedAlbumsMap = new Map<string, AlbumWithGroup[]>();
-
-    // Collect albums for each group
-    for (const group of groups) {
-      const groupPath = join(yearPath, group.id);
-      const groupAlbums = await getAlbumsInGroup(groupPath, group.id);
-      groupedAlbumsMap.set(group.id, groupAlbums);
-    }
-
-    // Get ungrouped albums
-    const items = await fs.readdir(yearPath);
-    const ungroupedAlbums: AlbumWithGroup[] = [];
-
-    for (const itemName of items) {
-      const itemPath = join(yearPath, itemName);
-      const stats = await fs.stat(itemPath);
-
-      if (stats.isDirectory()) {
-        const groupMetadata = await getGroupMetadata(itemPath);
-
-        if (!groupMetadata) {
-          const albumMetadata = await getAlbumMetadata(itemPath);
-          if (albumMetadata) {
-            const photos = await getAlbumPhotos(itemPath);
-            const firstPhoto = photos.length > 0 ? photos[0] : null;
-
-            ungroupedAlbums.push({
-              name: itemName,
-              path: itemPath,
-              metadata: albumMetadata,
-              firstPhoto,
-            });
-          }
-        }
-      }
-    }
-
-    // Sort ungrouped albums by displayOrder if available, otherwise by description (descending)
-    ungroupedAlbums.sort((a, b) => {
-      if (a.metadata?.displayOrder !== undefined && b.metadata?.displayOrder !== undefined) {
-        return a.metadata.displayOrder - b.metadata.displayOrder;
-      }
-      // Default to description descending if no displayOrder
-      const descA = a.metadata?.description || '';
-      const descB = b.metadata?.description || '';
-      return descB.localeCompare(descA);
-    });
-
-    // Combine all albums: grouped albums in group order, then ungrouped
+    // Get unified items with their ordering
+    const unifiedItems = await getUnifiedYearItems(year);
     const allAlbums: AlbumWithGroup[] = [];
-    for (const group of groups) {
-      const groupAlbums = groupedAlbumsMap.get(group.id) || [];
-      allAlbums.push(...groupAlbums);
+
+    // Process items in their unified order
+    for (const item of unifiedItems) {
+      if (item.type === 'group' && item.albumsInGroup) {
+        // Add all albums from this group
+        allAlbums.push(...item.albumsInGroup);
+      } else if (item.type === 'album' && item.album) {
+        // Add the ungrouped album
+        allAlbums.push(item.album);
+      }
     }
-    allAlbums.push(...ungroupedAlbums);
 
     return allAlbums;
   } catch (_error) {
@@ -259,6 +214,85 @@ export async function deleteGroup(year: string, groupId: string): Promise<boolea
   }
 }
 
+// Unified item type for mixed ordering
+export interface UnifiedYearItem {
+  type: 'group' | 'album';
+  id: string; // Group ID or album path
+  displayOrder?: number;
+  group?: GroupMetadata;
+  album?: AlbumWithGroup;
+  albumsInGroup?: AlbumWithGroup[]; // For groups, their contained albums
+}
+
+export async function getUnifiedYearItems(year: string): Promise<UnifiedYearItem[]> {
+  try {
+    const yearPath = join(ALBUMS_DIR, year);
+    const items = await fs.readdir(yearPath);
+    const unifiedItems: UnifiedYearItem[] = [];
+
+    // Process each item in the year directory
+    for (const itemName of items) {
+      const itemPath = join(yearPath, itemName);
+      const stats = await fs.stat(itemPath);
+
+      if (stats.isDirectory()) {
+        const groupMetadata = await getGroupMetadata(itemPath);
+
+        if (groupMetadata) {
+          // It's a group
+          const groupAlbums = await getAlbumsInGroup(itemPath, groupMetadata.id);
+          unifiedItems.push({
+            type: 'group',
+            id: groupMetadata.id,
+            displayOrder: groupMetadata.displayOrder,
+            group: groupMetadata,
+            albumsInGroup: groupAlbums
+          });
+        } else {
+          // It's an ungrouped album
+          const albumMetadata = await getAlbumMetadata(itemPath);
+          if (albumMetadata) {
+            const photos = await getAlbumPhotos(itemPath);
+            const firstPhoto = photos.length > 0 ? photos[0] : null;
+            const album: AlbumWithGroup = {
+              name: itemName,
+              path: itemPath,
+              metadata: albumMetadata,
+              firstPhoto,
+            };
+
+            unifiedItems.push({
+              type: 'album',
+              id: itemPath,
+              displayOrder: albumMetadata.displayOrder,
+              album
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by unified displayOrder
+    unifiedItems.sort((a, b) => {
+      if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+        return a.displayOrder - b.displayOrder;
+      }
+      // Fallback: groups before albums
+      if (a.type !== b.type) {
+        return a.type === 'group' ? -1 : 1;
+      }
+      // Then alphabetical
+      const nameA = a.type === 'group' ? a.group?.displayName : a.album?.metadata?.name;
+      const nameB = b.type === 'group' ? b.group?.displayName : b.album?.metadata?.name;
+      return (nameA || '').localeCompare(nameB || '');
+    });
+
+    return unifiedItems;
+  } catch (_error) {
+    return [];
+  }
+}
+
 export async function createGroup(
   year: string,
   groupName: string,
@@ -268,10 +302,10 @@ export async function createGroup(
   const groupId = sanitizeGroupId(groupName);
   const groupPath = await createGroupDirectory(year, groupId);
 
-  // Get existing groups to determine displayOrder
-  const existingGroups = await getGroupsByYear(year);
-  const maxOrder = existingGroups.reduce((max, group) => {
-    const order = group.displayOrder ?? -1;
+  // Get all unified items to determine displayOrder
+  const existingItems = await getUnifiedYearItems(year);
+  const maxOrder = existingItems.reduce((max, item) => {
+    const order = item.displayOrder ?? -1;
     return order > max ? order : max;
   }, -1);
 

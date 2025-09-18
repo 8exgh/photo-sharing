@@ -64,17 +64,26 @@ function GroupSection({
 }
 
 // Component for year section with expand/collapse
-function YearSection({ 
+interface UnifiedItem {
+  type: 'group' | 'album';
+  id: string;
+  displayOrder?: number;
+  group?: GroupMetadata;
+  album?: AlbumWithGroup;
+  albumsInGroup?: AlbumWithGroup[];
+}
+
+function YearSection({
   year,
   isExpanded,
   onToggle
-}: { 
+}: {
   year: string;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
   const [albums, setAlbums] = useState<AlbumWithGroup[]>([]);
-  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [unifiedItems, setUnifiedItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -85,25 +94,25 @@ function YearSection({
       const albumsResponse = await fetch(`/api/albums?year=${year}`, {
         cache: 'no-store',
       });
-      
+
       if (albumsResponse.status === 401) {
         window.location.href = '/access-denied';
         return;
       }
-      
+
       if (albumsResponse.ok) {
         const albumsData = await albumsResponse.json();
         setAlbums(albumsData.albums || []);
       }
-      
-      // Fetch groups
-      const groupsResponse = await fetch(`/api/groups?year=${year}`, {
+
+      // Fetch unified items to get groups and albums in correct order
+      const itemsResponse = await fetch(`/api/items?year=${year}`, {
         cache: 'no-store',
       });
-      
-      if (groupsResponse.ok) {
-        const groupsData = await groupsResponse.json();
-        setGroups(groupsData.groups || []);
+
+      if (itemsResponse.ok) {
+        const itemsData = await itemsResponse.json();
+        setUnifiedItems(itemsData.items || []);
       }
     } catch (error) {
       console.error('Error fetching year data:', error);
@@ -130,8 +139,6 @@ function YearSection({
     });
   };
 
-  // Separate ungrouped albums
-  const ungroupedAlbums = albums.filter(album => !album.groupId);
 
   return (
     <div>
@@ -151,27 +158,31 @@ function YearSection({
             <div className="pl-4 py-2 text-slate-400">Loading...</div>
           ) : (
             <>
-              {/* Groups */}
-              {groups.map((group) => (
-                <GroupSection
-                  key={group.id}
-                  group={group}
-                  albums={albums}
-                  year={year}
-                  isExpanded={expandedGroups.has(group.id)}
-                  onToggle={() => toggleGroup(group.id)}
-                />
-              ))}
-              
-              {/* Ungrouped albums */}
-              {ungroupedAlbums.map((album) => (
-                <div key={album.path} className="pl-4">
-                  <AlbumItem album={album} year={year} />
-                </div>
-              ))}
-              
+              {/* Render items in unified order */}
+              {unifiedItems.map((item) => {
+                if (item.type === 'group' && item.group) {
+                  return (
+                    <GroupSection
+                      key={item.id}
+                      group={item.group}
+                      albums={item.albumsInGroup || []}
+                      year={year}
+                      isExpanded={expandedGroups.has(item.group.id)}
+                      onToggle={() => toggleGroup(item.group.id)}
+                    />
+                  );
+                } else if (item.type === 'album' && item.album) {
+                  return (
+                    <div key={item.id} className="pl-4">
+                      <AlbumItem album={item.album} year={year} />
+                    </div>
+                  );
+                }
+                return null;
+              })}
+
               {/* Empty state */}
-              {albums.length === 0 && groups.length === 0 && (
+              {unifiedItems.length === 0 && (
                 <div className="pl-4 py-2 text-slate-500 italic">No albums for this year</div>
               )}
             </>
