@@ -20,6 +20,7 @@ export default function EditAlbum() {
   const [message, setMessage] = useState('');
   const [years, setYears] = useState<string[]>([]);
   const [currentYear, setCurrentYear] = useState<string>('');
+  const [urlName, setUrlName] = useState<string>('');
   const [albumData, setAlbumData] = useState<AlbumMetadata>({
     name: '',
     location: '',
@@ -58,6 +59,7 @@ export default function EditAlbum() {
             created: albumData.metadata.created || '',
           });
           setCurrentYear(String(params.year));
+          setUrlName(String(params.album));
         } else {
           setMessage(albumData.error || 'Failed to load album');
         }
@@ -95,16 +97,24 @@ export default function EditAlbum() {
           description: albumData.description,
           text: albumData.text,
           year: currentYear,
+          urlName: urlName,
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
         setMessage(data.message || 'Album updated successfully!');
-        setTimeout(() => {
-          // Always redirect to admin page since the album URL might have changed
-          router.push('/admin');
-        }, 2000);
+        // If the URL name or year changed, we need to redirect to the admin page
+        if (data.yearChanged || data.urlNameChanged) {
+          setTimeout(() => {
+            router.push('/admin');
+          }, 2000);
+        } else {
+          // Otherwise, stay on the page
+          setTimeout(() => {
+            setMessage('');
+          }, 2000);
+        }
       } else {
         setMessage(data.error || 'Failed to update album');
       }
@@ -212,6 +222,33 @@ export default function EditAlbum() {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Album URL Name (folder name)
+              </label>
+              <input
+                type="text"
+                required
+                value={urlName}
+                onChange={(e) => {
+                  // Only allow alphanumeric, hyphens, and underscores
+                  const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+                  setUrlName(value);
+                }}
+                pattern="[a-z0-9_-]+"
+                className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100"
+                placeholder="e.g., easter-winnipeg-trip"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Used in URLs: /albums/{currentYear}/{urlName || 'album-name'}. Only lowercase letters, numbers, hyphens, and underscores allowed.
+              </p>
+              {urlName && urlName !== String(params.album) && (
+                <p className="text-yellow-400 text-sm mt-1">
+                  ⚠️ Changing this will update all links to this album. The album will be accessible at: /albums/{currentYear}/{urlName}
+                </p>
+              )}
             </div>
 
             <div>

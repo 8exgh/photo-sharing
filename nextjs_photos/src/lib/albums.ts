@@ -129,6 +129,46 @@ export async function moveAlbumToYear(
   return newPath;
 }
 
+export async function renameAlbumFolder(
+  currentPath: string,
+  oldName: string,
+  newName: string
+): Promise<string> {
+  // Validate the new name (only alphanumeric, hyphens, and underscores)
+  if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+    throw new Error('Invalid album URL name format. Only letters, numbers, hyphens, and underscores are allowed.');
+  }
+
+  // Don't rename if the name is the same
+  if (oldName === newName) {
+    return currentPath;
+  }
+
+  // Build new path by replacing the last occurrence of oldName with newName
+  const pathParts = currentPath.split('/');
+  const albumIndex = pathParts.lastIndexOf(oldName);
+  if (albumIndex === -1) {
+    throw new Error('Album folder name not found in path');
+  }
+  pathParts[albumIndex] = newName;
+  const newPath = pathParts.join('/');
+
+  // Check if target already exists
+  try {
+    await fs.access(newPath);
+    throw new Error(`Album with URL name "${newName}" already exists in this location`);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+
+  // Rename the folder
+  await fs.rename(currentPath, newPath);
+
+  return newPath;
+}
+
 export async function getAlbumPhotos(albumPath: string): Promise<string[]> {
   try {
     const files = await fs.readdir(albumPath);
