@@ -62,12 +62,12 @@ export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
   try {
     const yearPath = join(ALBUMS_DIR, year);
     const items = await fs.readdir(yearPath);
-    
+
     const groups = await Promise.all(
       items.map(async (itemName) => {
         const itemPath = join(yearPath, itemName);
         const stats = await fs.stat(itemPath);
-        
+
         if (stats.isDirectory()) {
           const metadata = await getGroupMetadata(itemPath);
           if (metadata) {
@@ -77,8 +77,19 @@ export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
         return null;
       })
     );
-    
-    return groups.filter(Boolean) as GroupMetadata[];
+
+    const filteredGroups = groups.filter(Boolean) as GroupMetadata[];
+
+    // Sort groups by displayOrder if available, otherwise alphabetically
+    filteredGroups.sort((a, b) => {
+      if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+        return a.displayOrder - b.displayOrder;
+      }
+      // Fallback to alphabetical by display name
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    return filteredGroups;
   } catch (_error) {
     return [];
   }
@@ -87,9 +98,20 @@ export async function getGroupsByYear(year: string): Promise<GroupMetadata[]> {
 export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[]> {
   try {
     const yearPath = join(ALBUMS_DIR, year);
-    const items = await fs.readdir(yearPath);
 
-    const groupedAlbums: AlbumWithGroup[] = [];
+    // Get sorted groups first
+    const groups = await getGroupsByYear(year);
+    const groupedAlbumsMap = new Map<string, AlbumWithGroup[]>();
+
+    // Collect albums for each group
+    for (const group of groups) {
+      const groupPath = join(yearPath, group.id);
+      const groupAlbums = await getAlbumsInGroup(groupPath, group.id);
+      groupedAlbumsMap.set(group.id, groupAlbums);
+    }
+
+    // Get ungrouped albums
+    const items = await fs.readdir(yearPath);
     const ungroupedAlbums: AlbumWithGroup[] = [];
 
     for (const itemName of items) {
@@ -99,10 +121,7 @@ export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[
       if (stats.isDirectory()) {
         const groupMetadata = await getGroupMetadata(itemPath);
 
-        if (groupMetadata) {
-          const groupAlbums = await getAlbumsInGroup(itemPath, groupMetadata.id);
-          groupedAlbums.push(...groupAlbums);
-        } else {
+        if (!groupMetadata) {
           const albumMetadata = await getAlbumMetadata(itemPath);
           if (albumMetadata) {
             const photos = await getAlbumPhotos(itemPath);
@@ -130,8 +149,15 @@ export async function getAlbumsWithGroups(year: string): Promise<AlbumWithGroup[
       return descB.localeCompare(descA);
     });
 
-    // Return grouped albums first, then ungrouped
-    return [...groupedAlbums, ...ungroupedAlbums];
+    // Combine all albums: grouped albums in group order, then ungrouped
+    const allAlbums: AlbumWithGroup[] = [];
+    for (const group of groups) {
+      const groupAlbums = groupedAlbumsMap.get(group.id) || [];
+      allAlbums.push(...groupAlbums);
+    }
+    allAlbums.push(...ungroupedAlbums);
+
+    return allAlbums;
   } catch (_error) {
     return [];
   }
@@ -241,17 +267,24 @@ export async function createGroup(
 ): Promise<GroupMetadata> {
   const groupId = sanitizeGroupId(groupName);
   const groupPath = await createGroupDirectory(year, groupId);
-  
+
+  // Get existing groups to determine displayOrder
+  const existingGroups = await getGroupsByYear(year);
+  const maxOrder = existingGroups.reduce((max, group) => {
+    const order = group.displayOrder ?? -1;
+    return order > max ? order : max;
+  }, -1);
+
   const metadata: GroupMetadata = {
     id: groupId,
     displayName,
     description,
     created: new Date().toISOString(),
     albumCount: 0,
-    sortOrder: groupId,
+    displayOrder: maxOrder + 1,
     nestedAlbums: [],
   };
-  
+
   await saveGroupMetadata(groupPath, metadata);
   return metadata;
 }

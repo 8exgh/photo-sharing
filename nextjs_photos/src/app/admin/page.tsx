@@ -368,6 +368,36 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleReorderGroup = async (groupId: string, direction: 'up' | 'down') => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/groups/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          year: selectedYear,
+          groupId,
+          direction,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage(`Group moved ${direction} successfully`);
+        fetchGroups(selectedYear);
+        fetchAlbums(selectedYear); // Refresh albums to show new group order
+      } else {
+        setMessage(data.error || 'Failed to reorder group');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMoveAlbum = async (albumPath: string, targetGroupId: string) => {
     setLoading(true);
     try {
@@ -477,6 +507,52 @@ export default function AdminDashboard() {
                   Create New Album
                 </button>
               </div>
+
+              {/* Groups Management Section */}
+              {groups.length > 0 && (
+                <div className="mb-6 p-4 border border-slate-600 rounded-md bg-slate-800">
+                  <h3 className="text-lg font-semibold text-slate-100 mb-4">Groups Order</h3>
+                  <div className="space-y-2">
+                    {groups.map((group, index) => (
+                      <div key={group.id} className="flex items-center justify-between p-2 border border-slate-700 rounded bg-slate-900">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex flex-col space-y-1">
+                            <button
+                              onClick={() => handleReorderGroup(group.id, 'up')}
+                              disabled={index === 0}
+                              className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move up"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={() => handleReorderGroup(group.id, 'down')}
+                              disabled={index === groups.length - 1}
+                              className="p-1 text-slate-400 hover:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Move down"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div>
+                            <span className="text-slate-100 font-medium">{group.displayName}</span>
+                            {group.description && (
+                              <span className="text-slate-400 text-sm ml-2">- {group.description}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-slate-400 text-sm">
+                          {group.albumCount} album{group.albumCount !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {showCreateForm && (
                 <form onSubmit={handleCreateAlbum} className="mb-6 p-4 border border-slate-600 rounded-md bg-slate-800">

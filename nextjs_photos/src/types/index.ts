@@ -46,7 +46,7 @@ export interface GroupMetadata {
   description: string;
   created: string;
   albumCount: number;
-  sortOrder: string;
+  displayOrder?: number; // For manual sorting in admin
   nestedAlbums?: string[];
 }
 
