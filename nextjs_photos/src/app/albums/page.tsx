@@ -197,7 +197,6 @@ function YearSection({
 
 function AlbumsContent() {
   const [years, setYears] = useState<string[]>([]);
-  // const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedYears, setExpandedYears] = useSessionState<Set<string>>('albums-expanded-years', new Set([]));
   const [loading, setLoading] = useState(true);
 
