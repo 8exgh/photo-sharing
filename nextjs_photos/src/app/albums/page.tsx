@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { GroupMetadata, AlbumWithGroup } from '@/types';
+import {useSessionState} from "@/app/hooks/sessionState";
 
 // Component for individual album item
 function AlbumItem({ album, year }: { album: AlbumWithGroup; year: string }) {
@@ -196,7 +197,8 @@ function YearSection({
 
 function AlbumsContent() {
   const [years, setYears] = useState<string[]>([]);
-  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
+  // const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
+  const [expandedYears, setExpandedYears] = useSessionState<Set<string>>('albums-expanded-years', new Set([]));
   const [loading, setLoading] = useState(true);
 
   const fetchYears = useCallback(async () => {
@@ -219,7 +221,9 @@ function AlbumsContent() {
       if (sortedYears.length > 0) {
         const currentYear = new Date().getFullYear().toString();
         if (sortedYears.includes(currentYear)) {
-          setExpandedYears(new Set([currentYear]));
+          if(!expandedYears.has('initialized')) {
+            setExpandedYears(new Set([currentYear, 'initialized']));
+          }
         }
       }
     } catch (error) {
