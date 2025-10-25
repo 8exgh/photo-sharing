@@ -86,7 +86,7 @@ function YearSection({
   const [albums, setAlbums] = useState<AlbumWithGroup[]>([]);
   const [unifiedItems, setUnifiedItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useSessionState<Set<string>>(`albums-year-${year}-group-expanded`, new Set());
 
   const fetchYearData = useCallback(async () => {
     setLoading(true);
