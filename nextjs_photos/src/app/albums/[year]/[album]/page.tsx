@@ -153,9 +153,10 @@ export default function AlbumView() {
   };
 
   const getBackUrl = () => {
-    if (album?.groupId) {
-      return `/albums/${params.year}/${album.groupId}`;
-    }
+    // If you want to go back to the group, this is the example
+    // if (album?.groupId) {
+    //   return `/albums/${params.year}/${album.groupId}`;
+    // }
     return `/albums?year=${params.year}`;
   };
 
@@ -325,7 +326,7 @@ export default function AlbumView() {
             <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {album?.groupId ? 'Back to Group' : 'Back to Albums'}
+            {album?.groupId ? 'Back to Albums' : 'Back to Albums'}
           </Link>
           
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
