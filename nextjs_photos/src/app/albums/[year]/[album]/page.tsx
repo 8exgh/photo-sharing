@@ -64,6 +64,9 @@ export default function AlbumView() {
   const [error, setError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
+  const [selectedPhotoIsFullScreen, setSelectedPhotoIsFullScreen] = useState(false);
+
+  console.log('***selectedPhotoIsFullScreen', selectedPhotoIsFullScreen);
 
   const fetchAlbumOrGroup = useCallback(async () => {
     try {
@@ -151,6 +154,11 @@ export default function AlbumView() {
     
     setSelectedPhoto(album.photos[newIndex]);
   };
+
+  const toggleFullScreenPhoto = () => {
+    setSelectedPhotoIsFullScreen(!selectedPhotoIsFullScreen);
+  };
+
 
   const getBackUrl = () => {
     // If you want to go back to the group, this is the example
@@ -456,33 +464,67 @@ export default function AlbumView() {
 
         {/* Photo Modal */}
         {selectedPhoto && album && (
-          <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-            <div className="relative max-w-6xl max-h-full p-4 w-full">
-              <button
-                onClick={closePhotoModal}
-                className="absolute top-2 right-2 text-white hover:text-slate-300 z-10"
-              >
-                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <div className="fixed m-0 p-0 gap-0 inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 ">
+            {/*<div className="relative max-w-full max-h-full p-4 w-full h-full">*/}
+
+            <div className="relative m-0 p-0 w-full h-full max-h-full flex flex-col lg:flex-row gap-0">
+
               
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[90vh]">
+              {/*<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-full max-w-full border-2 border-red-600">*/}
                 {/* Left side: Image */}
-                <div className="lg:col-span-2 flex items-center justify-center">
-                  <div className="relative">
-                    <Image
-                      src={`/api/images/${album.albumPath}/${selectedPhoto}`}
-                      alt="Full size photo"
-                      width={800}
-                      height={600}
-                      className="max-w-full max-h-[70vh] object-contain"
-                    />
-                  </div>
-                </div>
-                
+                {/*<div className="lg:col-span-2 flex items-center justify-center">*/}
+
+                {/*<div className="flex-1 flex items-center justify-center min-h-0 min-w-0 border-2 border-blue-600">*/}
+                {/*/!*<div className="relative">*!/*/}
+                {/*    <Image*/}
+                {/*      src={`/api/images/${album.albumPath}/${selectedPhoto}`}*/}
+                {/*      alt="Full size photo"*/}
+                {/*      width={800}*/}
+                {/*      height={600}*/}
+                {/*      // className="max-w-full max-h-[70vh] object-contain"*/}
+                {/*      className="max-w-full max-h-full object-contain"*/}
+                {/*    />*/}
+                {/*  /!*</div>*!/*/}
+                {/*</div>*/}
+
+              {/* Photo Container - needs position relative for fill */}
+              <div className="flex-1 m-0 p-0 flex items-center justify-center min-h-0 min-w-0 relative">
+
+
+                <Image
+                    src={`/api/images/${album.albumPath}/${selectedPhoto}`}
+                    alt="Full size photo"
+                    fill
+                    className="object-contain"
+                />
+
+                <button
+                    onClick={toggleFullScreenPhoto}
+                    className={`absolute top-4 ${selectedPhotoIsFullScreen ? 'right-4' : 'right-15'}  z-10 text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg`}
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                  </svg>
+                </button>
+
+                {(!selectedPhotoIsFullScreen && <button
+                    onClick={closePhotoModal}
+                    className=" absolute top-4 right-4 z-10 text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>)}
+
+
+              </div>
+
+                {/*</div>*/}
+                {/****end image container*/}
+
                 {/* Right side: Text and controls */}
-                <div className="lg:col-span-1 flex flex-col">
+                {/*<div className="lg:col-span-1 flex flex-col border-2 border-red-500">*/}
+              {(!selectedPhotoIsFullScreen &&  <div className="lg:w-80 lg:max-w-sm bg-white rounded-lg p-6 overflow-y-auto lg:max-h-full max-h-48">
                   <div className="bg-slate-800 rounded-lg p-4 flex-1 min-h-0">
                     <h3 className="text-lg font-semibold text-white mb-2">
                       {(() => {
@@ -497,7 +539,7 @@ export default function AlbumView() {
                         return photo?.uploadDate ? new Date(photo.uploadDate).toLocaleDateString() : '';
                       })()}
                     </div>)}
-                    
+
                     <div className="flex-1 overflow-y-auto">
                       {(() => {
                         const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
@@ -508,7 +550,7 @@ export default function AlbumView() {
                             </p>
                           </div>
                         ) : (
-                          <p className="text-slate-400 italic">No description available</p>
+                          <p className="text-slate-400 italic">***No description available</p>
                         );
                       })()}
                     </div>
@@ -538,8 +580,12 @@ export default function AlbumView() {
                       </svg>
                     </button>
                   </div>
+                  {/****end nav controls*/}
                 </div>
-              </div>
+              )}
+              {/*</div>*/}
+            {/****end*/}
+
             </div>
           </div>
         )}
