@@ -496,12 +496,42 @@ export default function AlbumView() {
 
               {(!selectedPhotoIsFullScreen &&  <div className="lg:w-80 lg:max-w-sm bg-white rounded-lg p-6 overflow-y-auto lg:max-h-full max-h-48">
                   <div className="bg-slate-800 rounded-lg p-4 flex-1 min-h-0">
-                    <h3 className="text-lg font-semibold text-white mb-2">
+
+                    {/* Navigation controls */}
+                    <div className="flex justify-between items-center mt-4">
+                      <button
+                          onClick={() => navigatePhoto('prev')}
+                          className="text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg"
+                      >
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+
+                      <div className="text-white text-center">
+                        {album.photos.indexOf(selectedPhoto) + 1} of {album.photos.length}
+                      </div>
+
+                      <button
+                          onClick={() => navigatePhoto('next')}
+                          className="text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg"
+                      >
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                    {/****end nav controls*/}
+
+
+                    <h3 className="text-lg font-semibold text-white mb-2 mt-2">
                       {(() => {
                         const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
                         return photo?.text; // If you want the photo name to default when not title, uncomment:  || selectedPhoto;
                       })()}
                     </h3>
+
+
 
                     {!true && (<div className="text-sm text-slate-400 mb-4">
                       {(() => {
@@ -520,37 +550,12 @@ export default function AlbumView() {
                             </p>
                           </div>
                         ) : (
-                          <p className="text-slate-400 italic">***No description available</p>
+                          <p className="text-slate-400 italic">No description available</p>
                         );
                       })()}
                     </div>
                   </div>
-                  
-                  {/* Navigation controls */}
-                  <div className="flex justify-between items-center mt-4">
-                    <button
-                      onClick={() => navigatePhoto('prev')}
-                      className="text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg"
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    
-                    <div className="text-white text-center">
-                      {album.photos.indexOf(selectedPhoto) + 1} of {album.photos.length}
-                    </div>
-                    
-                    <button
-                      onClick={() => navigatePhoto('next')}
-                      className="text-white hover:text-slate-300 p-2 bg-slate-700 rounded-lg"
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                  {/****end nav controls*/}
+
                 </div>
               )}
             </div>
