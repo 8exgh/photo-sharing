@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { logRequest } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const TAG = 'GET /api/build-info';
+  logRequest(TAG, request, { msg: 'Build info request' });
+
   // Return build information
   const buildInfo = {
     gitHash: process.env.NEXT_PUBLIC_GIT_HASH || 'unknown',

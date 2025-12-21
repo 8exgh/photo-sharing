@@ -5,6 +5,7 @@ import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import { sanitizeYear, sanitizeAlbumName, sanitizeFilename, isValidImageExtension } from '@/lib/security';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -12,15 +13,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ year: string; album: string; filename: string }> }
 ) {
+  const TAG = 'PUT /api/albums/[year]/[album]/photos/[filename]';
   try {
+    const { year, album, filename } = await params;
+    logRequest(TAG, request, { msg: 'Update photo text request', year, album, filename });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const { text } = await request.json();
-    const { year, album, filename } = await params;
     
     // Sanitize inputs to prevent path traversal
     const cleanYear = sanitizeYear(year);
@@ -67,13 +72,16 @@ export async function PUT(
     };
     
     await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    log(TAG, 'Photo text updated successfully', { year, album, filename });
+
+    return NextResponse.json({
+      success: true,
       message: 'Photo text updated successfully',
       text: updatedPhotos[photoIndex].text,
     });
-  } catch (_error) {
+  } catch (error) {
+    logError(TAG, 'Error updating photo text', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
@@ -82,14 +90,17 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ year: string; album: string; filename: string }> }
 ) {
+  const TAG = 'DELETE /api/albums/[year]/[album]/photos/[filename]';
   try {
+    const { year, album, filename } = await params;
+    logRequest(TAG, request, { msg: 'Delete photo request', year, album, filename });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const { year, album, filename } = await params;
     
     // Sanitize inputs to prevent path traversal
     const cleanYear = sanitizeYear(year);
@@ -128,41 +139,45 @@ export async function DELETE(
       return NextResponse.json({ error: 'Photo not found in metadata' }, { status: 404 });
     }
     
+    log(TAG, 'Deleting photo files', { photoPath, thumbnailPath });
+
     // Delete the physical files
     try {
       await fs.unlink(photoPath);
     } catch (_err) {
       const error = _err as NodeJS.ErrnoException;
       if (error.code !== 'ENOENT') {
-        console.error('Error deleting photo file:', _err);
+        log(TAG, 'Error deleting photo file', { error: error.message });
       }
     }
-    
+
     try {
       await fs.unlink(thumbnailPath);
     } catch (_err) {
       const error = _err as NodeJS.ErrnoException;
       if (error.code !== 'ENOENT') {
-        console.error('Error deleting thumbnail file:', _err);
+        log(TAG, 'Error deleting thumbnail file', { error: error.message });
       }
     }
-    
+
     // Remove the photo from metadata
     const updatedPhotos = existingMetadata.photos.filter((_, index) => index !== photoIndex);
-    
+
     const updatedMetadata = {
       ...existingMetadata,
       photos: updatedPhotos,
     };
-    
+
     await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    log(TAG, 'Photo deleted successfully', { year, album, filename });
+
+    return NextResponse.json({
+      success: true,
       message: 'Photo deleted successfully',
     });
-  } catch (_error) {
-    console.error('Error deleting photo:', _error);
+  } catch (error) {
+    logError(TAG, 'Error deleting photo', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

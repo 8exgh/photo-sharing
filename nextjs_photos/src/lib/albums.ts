@@ -1,6 +1,7 @@
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { AlbumMetadata } from '@/types';
+import { log, logError } from '@/lib/logger';
 
 // Use environment variable for albums directory, fallback to public/albums for development
 const ALBUMS_DIR = join(process.cwd(), process.env.ALBUMS_DIR || 'public/albums');
@@ -15,19 +16,23 @@ export function sanitizeAlbumName(name: string): string {
 }
 
 export async function createAlbumDirectory(year: string, albumName: string): Promise<string> {
+  const TAG = 'lib/albums:createAlbumDirectory';
   const sanitizedName = sanitizeAlbumName(albumName);
   const albumPath = join(ALBUMS_DIR, year, sanitizedName);
   const thumbnailsPath = join(albumPath, 'thumbnails');
-  
+
   await fs.mkdir(albumPath, { recursive: true });
   await fs.mkdir(thumbnailsPath, { recursive: true });
-  
+
+  log(TAG, 'Album directory created', { year, albumName, sanitizedName, albumPath });
   return albumPath;
 }
 
 export async function saveAlbumMetadata(albumPath: string, metadata: AlbumMetadata): Promise<void> {
+  const TAG = 'lib/albums:saveAlbumMetadata';
   const metadataPath = join(albumPath, 'album.json');
   await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+  log(TAG, 'Album metadata saved', { albumPath, name: metadata.name });
 }
 
 export async function getAlbumMetadata(albumPath: string): Promise<AlbumMetadata | null> {
@@ -35,7 +40,11 @@ export async function getAlbumMetadata(albumPath: string): Promise<AlbumMetadata
     const metadataPath = join(albumPath, 'album.json');
     const data = await fs.readFile(metadataPath, 'utf8');
     return JSON.parse(data);
-  } catch (_error) {
+  } catch (error) {
+    // Don't log ENOENT as error - file may not exist for non-album directories
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      logError('lib/albums:getAlbumMetadata', 'Error reading album metadata', error);
+    }
     return null;
   }
 }
@@ -67,7 +76,8 @@ export async function getAlbumsByYear(year: string): Promise<{ name: string; pat
     );
     
     return albumsWithMetadata.filter(Boolean) as { name: string; path: string; metadata: AlbumMetadata | null; firstPhoto: string | null }[];
-  } catch (_error) {
+  } catch (error) {
+    logError('lib/albums:getAlbumsByYear', 'Error getting albums by year', error);
     return [];
   }
 }
@@ -84,17 +94,20 @@ export async function getAllYears(): Promise<string[]> {
     );
     
     return yearDirs.filter(Boolean) as string[];
-  } catch (_error) {
+  } catch (error) {
+    logError('lib/albums:getAllYears', 'Error getting all years', error);
     return [];
   }
 }
 
 export async function moveAlbumToYear(
-  currentPath: string, 
-  newYear: string, 
+  currentPath: string,
+  newYear: string,
   albumName: string,
   groupId?: string
 ): Promise<string> {
+  const TAG = 'lib/albums:moveAlbumToYear';
+  log(TAG, 'Moving album to year', { currentPath, newYear, albumName, groupId });
   // Extract the album folder name from the current path
   const pathParts = currentPath.split('/');
   const albumFolderName = pathParts[pathParts.length - 1];
@@ -125,7 +138,8 @@ export async function moveAlbumToYear(
   
   // Move the album directory
   await fs.rename(currentPath, newPath);
-  
+
+  log(TAG, 'Album moved successfully', { currentPath, newPath });
   return newPath;
 }
 
@@ -134,6 +148,8 @@ export async function renameAlbumFolder(
   oldName: string,
   newName: string
 ): Promise<string> {
+  const TAG = 'lib/albums:renameAlbumFolder';
+  log(TAG, 'Renaming album folder', { currentPath, oldName, newName });
   // Validate the new name (only alphanumeric, hyphens, and underscores)
   if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
     throw new Error('Invalid album URL name format. Only letters, numbers, hyphens, and underscores are allowed.');
@@ -166,6 +182,7 @@ export async function renameAlbumFolder(
   // Rename the folder
   await fs.rename(currentPath, newPath);
 
+  log(TAG, 'Album folder renamed successfully', { oldName, newName, newPath });
   return newPath;
 }
 
@@ -176,7 +193,10 @@ export async function getAlbumPhotos(albumPath: string): Promise<string[]> {
       const ext = file.toLowerCase().split('.').pop();
       return ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
     });
-  } catch (_error) {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      logError('lib/albums:getAlbumPhotos', 'Error getting album photos', error);
+    }
     return [];
   }
 }

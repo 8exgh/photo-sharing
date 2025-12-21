@@ -5,28 +5,37 @@ import { getAlbumsWithGroups } from '@/lib/groups';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  const TAG = 'POST /api/admin/migrate-photo-metadata';
   try {
+    logRequest(TAG, request, { msg: 'Migrate photo metadata request' });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { year, album } = await request.json();
-    
+
     if (!year || !album) {
+      log(TAG, 'Missing parameters', { year, album });
       return NextResponse.json({ error: 'Year and album are required' }, { status: 400 });
     }
+
+    log(TAG, 'Migrating album', { year, album });
 
     // Find the album using the group-aware function to get the correct path
     const albums = await getAlbumsWithGroups(year);
     const targetAlbum = albums.find(a => a.name === album);
-    
+
     if (!targetAlbum) {
+      log(TAG, 'Album not found', { year, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
     
@@ -65,7 +74,7 @@ export async function POST(request: NextRequest) {
             fileSize: fileSize,
           };
         } catch (error) {
-          console.error(`Failed to get metadata for ${photo.filename}:`, error);
+          logError(TAG, `Failed to get metadata for ${photo.filename}`, error);
           // Return original photo data if we can't get metadata
           return photo;
         }
@@ -80,24 +89,29 @@ export async function POST(request: NextRequest) {
 
     await saveAlbumMetadata(albumPath, updatedMetadata);
 
-    return NextResponse.json({ 
-      success: true, 
+    log(TAG, 'Migration complete for album', { year, album, updatedCount });
+
+    return NextResponse.json({
+      success: true,
       message: `Updated metadata for ${updatedCount} photos`,
-      updatedCount 
+      updatedCount
     });
   } catch (error) {
-    console.error('Migration error:', error);
+    logError(TAG, 'Migration error', error);
     return NextResponse.json({ error: 'Migration failed' }, { status: 500 });
   }
 }
 
 // GET endpoint to migrate all albums
 export async function GET(request: NextRequest) {
-
+  const TAG = 'GET /api/admin/migrate-photo-metadata';
   try {
+    logRequest(TAG, request, { msg: 'Migrate all albums request' });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -155,7 +169,7 @@ export async function GET(request: NextRequest) {
                 fileSize: fileSize,
               };
             } catch (error) {
-              console.error(`Failed to get metadata for ${photo.filename}:`, error);
+              logError(TAG, `Failed to get metadata for ${photo.filename}`, error);
               return photo;
             }
           })
@@ -168,7 +182,7 @@ export async function GET(request: NextRequest) {
             photos: updatedPhotos,
           };
           await saveAlbumMetadata(albumPath, updatedMetadata);
-          
+
           results.push({
             year,
             album,
@@ -178,14 +192,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
+    log(TAG, 'Full migration complete', { totalUpdated, albumsUpdated: results.length });
+
+    return NextResponse.json({
+      success: true,
       message: `Migration complete. Updated ${totalUpdated} photos across ${results.length} albums`,
       totalUpdated,
       albums: results
     });
   } catch (error) {
-    console.error('Migration error:', error, request);
+    logError(TAG, 'Migration error', error);
     return NextResponse.json({ error: 'Migration failed' }, { status: 500 });
   }
 }

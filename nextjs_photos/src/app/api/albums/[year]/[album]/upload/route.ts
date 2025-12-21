@@ -6,6 +6,7 @@ import { join } from 'path';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { PhotoMetadata } from '@/types';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -13,14 +14,17 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ year: string; album: string }> }
 ) {
+  const TAG = 'POST /api/albums/[year]/[album]/upload';
   try {
+    const { year, album } = await params;
+    logRequest(TAG, request, { msg: 'Upload photo request', year, album });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const { year, album } = await params;
     
     // Find the album using the group-aware function
     const albums = await getAlbumsWithGroups(year);
@@ -133,13 +137,15 @@ export async function POST(
 
     await saveAlbumMetadata(albumPath, updatedMetadata);
 
-    return NextResponse.json({ 
-      success: true, 
+    log(TAG, 'Photo uploaded successfully', { year, album, filename, fileSize, width: imageMetadata.width, height: imageMetadata.height });
+
+    return NextResponse.json({
+      success: true,
       message: 'Photo uploaded successfully',
       filename,
     });
-  } catch (_error) {
-    console.error('Upload error:', _error);
+  } catch (error) {
+    logError(TAG, 'Upload error', error);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

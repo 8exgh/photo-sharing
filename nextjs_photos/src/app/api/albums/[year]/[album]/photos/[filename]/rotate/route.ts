@@ -5,6 +5,7 @@ import { join } from 'path';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { sanitizeYear, sanitizeAlbumName, sanitizeFilename, isValidImageExtension } from '@/lib/security';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -12,14 +13,17 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ year: string; album: string; filename: string }> }
 ) {
+  const TAG = 'POST /api/albums/[year]/[album]/photos/[filename]/rotate';
   try {
+    const { year, album, filename } = await params;
+    logRequest(TAG, request, { msg: 'Rotate photo request', year, album, filename });
+
     const session = await getSession();
-    
+
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const { year, album, filename } = await params;
     
     // Sanitize inputs to prevent path traversal
     const cleanYear = sanitizeYear(year);
@@ -75,17 +79,19 @@ export async function POST(
           mozjpeg: true
         })
         .toFile(thumbnailPath);
-    } catch (error) {
+    } catch (thumbError) {
       // If thumbnail generation fails, log it but don't fail the whole operation
-      console.error('Failed to regenerate thumbnail after rotation:', cleanFilename, error);
+      log(TAG, 'Failed to regenerate thumbnail after rotation', { filename: cleanFilename, error: thumbError instanceof Error ? thumbError.message : String(thumbError) });
     }
-    
-    return NextResponse.json({ 
-      success: true, 
+
+    log(TAG, 'Photo rotated successfully', { year, album, filename });
+
+    return NextResponse.json({
+      success: true,
       message: 'Photo rotated successfully',
     });
   } catch (error) {
-    console.error('Error rotating photo:', error);
+    logError(TAG, 'Error rotating photo', error);
     return NextResponse.json({ error: 'Failed to rotate photo' }, { status: 500 });
   }
 }

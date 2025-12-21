@@ -4,77 +4,66 @@ import { createAlbumDirectory, saveAlbumMetadata, getAllYears } from '@/lib/albu
 import { getAlbumsWithGroups, moveAlbumToGroup } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
 import { isValidAccessKey } from '@/lib/access-keys';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
 // Handle preflight requests for CORS
 export async function OPTIONS(request: NextRequest) {
+  const TAG = 'OPTIONS /api/albums';
   const response = new NextResponse(null, { status: 200 });
-  
+
   // Set CORS headers for preflight
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
-  
+
   const origin = request.headers.get('origin');
   if (origin) {
     response.headers.set('Access-Control-Allow-Origin', origin);
   }
-  
-  console.log('[OPTIONS /api/albums] Preflight request handled for origin:', origin);
-  
+
+  logRequest(TAG, request, { msg: 'Preflight request handled', origin });
+
   return response;
 }
 
 export async function GET(request: NextRequest) {
+  const TAG = 'GET /api/albums';
   try {
-    console.log('[GET /api/albums] Request received:', {
-      timestamp: new Date().toISOString(),
-      url: request.url,
-      headers: {
-        cookie: request.headers.get('cookie')?.substring(0, 50) + '...',
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer'),
-      }
-    });
-    
+    logRequest(TAG, request, { msg: 'Request received' });
+
     const session = await getSession();
-    
-    console.log('[GET /api/albums] Session state:', {
-      isAuthenticated: session.isAuthenticated,
-      isAdmin: session.isAdmin,
-      accessKey: session.accessKey ? 'present' : 'none',
-    });
-    
+    log(TAG, 'Session state', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
+
     if (!session.isAuthenticated) {
-      console.log('[GET /api/albums] Not authenticated, denying access');
+      log(TAG, 'Not authenticated, denying access');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     // Validate access key for non-admin sessions
     if (!session.isAdmin && session.accessKey) {
-      console.log('[GET /api/albums] Validating access key for non-admin session');
+      log(TAG, 'Validating access key for non-admin session');
       const keyIsValid = await isValidAccessKey(session.accessKey);
-      console.log('[GET /api/albums] Access key validation result:', keyIsValid);
-      
+
       if (!keyIsValid) {
-        console.log('[GET /api/albums] Access key invalid, clearing session');
-        // Clear invalid session
+        log(TAG, 'Access key invalid, clearing session');
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
         return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
       }
     }
-    
+
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
-    
+
     if (year) {
       const albums = await getAlbumsWithGroups(year);
+      log(TAG, 'Fetched albums for year', { year, count: albums.length });
       return NextResponse.json(
         { albums },
-        { 
+        {
           headers: {
             'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
             'Pragma': 'no-cache',
@@ -84,9 +73,10 @@ export async function GET(request: NextRequest) {
       );
     } else {
       const years = await getAllYears();
+      log(TAG, 'Fetched all years', { count: years.length });
       return NextResponse.json(
         { years },
-        { 
+        {
           headers: {
             'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
             'Pragma': 'no-cache',
@@ -95,45 +85,23 @@ export async function GET(request: NextRequest) {
         }
       );
     }
-  } catch (_error) {
+  } catch (error) {
+    logError(TAG, 'Error fetching albums', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const TAG = 'POST /api/albums';
   try {
-    // Enhanced logging for debugging
-    console.log('[POST /api/albums] Request received:', {
-      timestamp: new Date().toISOString(),
-      headers: {
-        cookie: request.headers.get('cookie')?.substring(0, 50) + '...', // Truncate for security
-        origin: request.headers.get('origin'),
-        referer: request.headers.get('referer'),
-        contentType: request.headers.get('content-type'),
-      },
-      url: request.url,
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        hasSessionSecret: !!process.env.SESSION_SECRET,
-        sessionSecretLength: process.env.SESSION_SECRET?.length,
-      }
-    });
+    logRequest(TAG, request, { msg: 'Create album request' });
 
     const session = await getSession();
-    
-    console.log('[POST /api/albums] Session state:', {
-      isAuthenticated: session.isAuthenticated,
-      isAdmin: session.isAdmin,
-      accessKey: session.accessKey ? 'present' : 'none',
-      sessionKeys: Object.keys(session),
-    });
-    
+    log(TAG, 'Session state', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
+
     if (!session.isAdmin) {
-      console.log('[POST /api/albums] Authorization failed - not admin:', {
-        sessionData: JSON.stringify(session),
-        reason: !session.isAuthenticated ? 'not authenticated' : 'not admin'
-      });
-      return NextResponse.json({ 
+      log(TAG, 'Authorization failed - not admin');
+      return NextResponse.json({
         error: 'Unauthorized',
         debug: process.env.NODE_ENV !== 'production' ? {
           isAuthenticated: session.isAuthenticated,
@@ -142,8 +110,8 @@ export async function POST(request: NextRequest) {
         } : undefined
       }, { status: 401 });
     }
-    
-    console.log('[POST /api/albums] Authorization successful, parsing request body...');
+
+    log(TAG, 'Authorization successful, parsing request body');
     const { name, year, location, description, groupId, datePrefix } = await request.json();
     
     if (!name || !year) {
@@ -195,20 +163,15 @@ export async function POST(request: NextRequest) {
     };
     
     await saveAlbumMetadata(albumPath, metadata);
-    
-    console.log('[POST /api/albums] Album created successfully:', {
-      albumName,
-      year,
-      groupId,
-      albumPath: albumPath.split('public/albums/')[1]
-    });
-    
-    const response = NextResponse.json({ 
-      success: true, 
+
+    log(TAG, 'Album created successfully', { albumName, year, groupId, albumPath: albumPath.split('public/albums/')[1] });
+
+    const response = NextResponse.json({
+      success: true,
       message: 'Album created successfully',
       albumPath: albumPath.split('public/albums/')[1],
     });
-    
+
     // Add CORS headers if needed for production
     if (process.env.NODE_ENV === 'production') {
       response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -217,13 +180,10 @@ export async function POST(request: NextRequest) {
         response.headers.set('Access-Control-Allow-Origin', origin);
       }
     }
-    
+
     return response;
   } catch (error) {
-    console.error('[POST /api/albums] Error creating album:', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    logError(TAG, 'Error creating album', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

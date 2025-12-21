@@ -2,24 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
 import { getGroupsByYear, getGroupMetadata, saveGroupMetadata } from '@/lib/groups';
 import { join } from 'path';
+import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
 const ALBUMS_DIR = join(process.cwd(), process.env.ALBUMS_DIR || 'public/albums');
 
 export async function POST(request: NextRequest) {
+  const TAG = 'POST /api/groups/reorder';
   try {
+    logRequest(TAG, request, { msg: 'Reorder group request' });
+
     const session = await getSession();
 
     if (!session.isAdmin) {
+      log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { year, groupId, direction } = await request.json();
 
     if (!year || !groupId || !direction || !['up', 'down'].includes(direction)) {
+      log(TAG, 'Invalid parameters', { year, groupId, direction });
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
+
+    log(TAG, 'Reordering group', { year, groupId, direction });
 
     // Get all groups for the year
     const groups = await getGroupsByYear(year);
@@ -28,6 +36,7 @@ export async function POST(request: NextRequest) {
     const currentIndex = groups.findIndex(g => g.id === groupId);
 
     if (currentIndex === -1) {
+      log(TAG, 'Group not found', { groupId });
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
@@ -35,6 +44,7 @@ export async function POST(request: NextRequest) {
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     if (newIndex < 0 || newIndex >= groups.length) {
+      log(TAG, 'Cannot move in that direction', { currentIndex, newIndex, direction });
       return NextResponse.json({ error: 'Cannot move group in that direction' }, { status: 400 });
     }
 
@@ -56,12 +66,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    log(TAG, 'Group reordered successfully', { groupId, direction });
+
     return NextResponse.json({
       success: true,
       message: `Group moved ${direction} successfully`
     });
-  } catch (_error) {
-    console.error('Error reordering groups:', _error);
+  } catch (error) {
+    logError(TAG, 'Error reordering groups', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
+import { getClientIP, log } from '@/lib/logger';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -28,11 +29,11 @@ function validateSessionSecret() {
       );
     }
     hasValidatedSecret = true;
-    console.log('[Middleware] SESSION_SECRET validated successfully');
+    log('Middleware', 'SESSION_SECRET validated successfully');
   }
 }
 
-console.log('[Middleware Session Config] Initializing with:', {
+log('Middleware', 'Session config initialized', {
   environment: process.env.NODE_ENV,
   isProduction,
   hasCustomSecret: process.env.SESSION_SECRET !== undefined,
@@ -67,10 +68,11 @@ export async function middleware(request: NextRequest) {
       // If a key is present in the URL, create a session
       // Validation will happen in the API routes
       const urlKey = searchParams.get('key');
-      console.log('[Middleware] URL key:', urlKey, 'Path:', pathname);
-      
+      const ip = getClientIP(request);
+      log('Middleware', 'Processing albums route', { ip, pathname, hasUrlKey: !!urlKey });
+
       if (urlKey) {
-        console.log('[Middleware] Creating session with key:', urlKey);
+        log('Middleware', 'Creating session with access key', { ip, keyPrefix: urlKey.substring(0, 8) + '...' });
         // Create session with the key and redirect to clean URL
         session.isAuthenticated = true;
         session.accessKey = urlKey;
@@ -79,7 +81,7 @@ export async function middleware(request: NextRequest) {
 
         const url = new URL(request.url);
         url.searchParams.delete('key');
-        console.log('[Middleware] Redirecting to clean URL:', url.toString());
+        log('Middleware', 'Redirecting to clean URL', { ip, cleanUrl: url.pathname });
         
         // Create a redirect response and ensure session is properly attached
         const redirectResponse = NextResponse.redirect(url);
@@ -95,15 +97,18 @@ export async function middleware(request: NextRequest) {
       
       // If already authenticated, allow access
       // Validation will happen in the API routes
-      console.log('[Middleware] Session auth status:', session.isAuthenticated, 'Admin:', session.isAdmin, 'Key:', session.accessKey);
+      log('Middleware', 'Session status check', { ip, isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
       if (session.isAuthenticated) {
-        console.log('[Middleware] Session authenticated, allowing access');
+        log('Middleware', 'Session authenticated, allowing access', { ip, pathname });
         return response;
       }
 
       // Not authenticated: no session exists
       // Access will be denied below
+      log('Middleware', 'No valid session, access denied', { ip, pathname });
     } catch (_error) {
+      const ip = getClientIP(request);
+      log('Middleware', 'Session error, redirecting to access-denied', { ip, pathname, error: _error instanceof Error ? _error.message : String(_error) });
       // Clear any existing session on error
       try {
         // session may not be available here; attempt to reset via cookie deletion by redirecting
@@ -112,22 +117,29 @@ export async function middleware(request: NextRequest) {
         // Ignore save errors
       }
     }
-    
+
     // Redirect to access denied if no valid session or key
+    const ip = getClientIP(request);
+    log('Middleware', 'Redirecting to access-denied', { ip, pathname });
     return NextResponse.redirect(new URL('/access-denied', request.url));
   }
   
   // Protect /admin routes
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    const ip = getClientIP(request);
+    log('Middleware', 'Admin route access attempt', { ip, pathname });
     try {
       const response = NextResponse.next();
       // Use consistent cookie settings based on environment
       const session = await getIronSession<SessionData>(request, response, sessionConfig);
-      
+
       if (!session.isAdmin) {
+        log('Middleware', 'Admin access denied, not admin', { ip, pathname, isAuth: session.isAuthenticated });
         return NextResponse.redirect(new URL('/admin/login', request.url));
       }
+      log('Middleware', 'Admin access granted', { ip, pathname });
     } catch (_error) {
+      log('Middleware', 'Admin session error', { ip, pathname, error: _error instanceof Error ? _error.message : String(_error) });
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }
