@@ -380,6 +380,7 @@ export default function AlbumView() {
                   src={`/api/thumbnails/${album.albumPath}/${photo}`}
                   alt={`Photo ${index + 1}`}
                   fill
+                  unoptimized
                   className="object-cover"
                   sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 />
@@ -470,6 +471,7 @@ export default function AlbumView() {
                     src={`/api/images/${album.albumPath}/${selectedPhoto}`}
                     alt="Full size photo"
                     fill
+                    unoptimized
                     className="object-contain"
                 />
                 <button
