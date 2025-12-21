@@ -1,6 +1,7 @@
 import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
 import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Log session configuration for debugging
 const isProduction = process.env.NODE_ENV === 'production';
@@ -81,4 +82,27 @@ export function generateAccessKey(): string {
 export async function validateSession(_request?: Request): Promise<SessionData> {
   const session = await getSession();
   return session;
+}
+
+/**
+ * Get session from request/response directly (more reliable for API routes)
+ * This mirrors how the middleware reads sessions
+ */
+export async function getSessionFromRequest(request: NextRequest, response: NextResponse) {
+  // Validate SESSION_SECRET on first runtime use in production
+  if (isProduction && !hasValidatedSecret) {
+    if (!process.env.SESSION_SECRET) {
+      throw new Error(
+        '[SECURITY ERROR] SESSION_SECRET environment variable is required in production.'
+      );
+    }
+    if (process.env.SESSION_SECRET.length < 32) {
+      throw new Error(
+        `[SECURITY ERROR] SESSION_SECRET must be at least 32 characters long in production.`
+      );
+    }
+    hasValidatedSecret = true;
+  }
+
+  return await getIronSession<SessionData>(request, response, sessionConfig);
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { sanitizePath, sanitizeFilename, isValidImageExtension } from '@/lib/security';
@@ -16,7 +16,9 @@ export async function GET(
     const { path } = await params;
     logRequest(TAG, request, { msg: 'Image request', pathLength: path?.length });
 
-    const session = await getSession();
+    // Use request-based session getter for more reliable cookie reading
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {
       log(TAG, 'Unauthorized - not authenticated', { path: path?.join('/') });
