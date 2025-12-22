@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
@@ -18,7 +18,8 @@ export async function POST(
     const { year: sourceYear, album: sourceAlbum, filename } = await params;
     logRequest(TAG, request, { msg: 'Move photo request', sourceYear, sourceAlbum, filename });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

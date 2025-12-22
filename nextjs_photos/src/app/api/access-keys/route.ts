@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { createAccessKey, getAccessKeys, deleteAccessKey } from '@/lib/access-keys';
 import { logRequest, log, logError } from '@/lib/logger';
 
@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Request received' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
     if (!session.isAdmin) {
@@ -33,7 +34,8 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Create access key request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
     if (!session.isAdmin) {
@@ -60,7 +62,8 @@ export async function DELETE(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Delete access key request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
     if (!session.isAdmin) {

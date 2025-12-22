@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { logRequest, log, logError } from '@/lib/logger';
@@ -15,7 +15,8 @@ export async function PUT(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Update album text request', year, album });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

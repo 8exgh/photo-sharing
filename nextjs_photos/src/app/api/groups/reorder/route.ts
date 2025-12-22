@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getGroupsByYear, getGroupMetadata, saveGroupMetadata } from '@/lib/groups';
 import { join } from 'path';
 import { logRequest, log, logError } from '@/lib/logger';
@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Reorder group request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

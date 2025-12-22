@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { logRequest, log, logError } from '@/lib/logger';
@@ -11,7 +11,8 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Reorder album request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

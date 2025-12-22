@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { createAlbumDirectory, saveAlbumMetadata, getAllYears } from '@/lib/albums';
 import { getAlbumsWithGroups, moveAlbumToGroup } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Request received' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session state', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
     if (!session.isAuthenticated) {
@@ -51,7 +52,11 @@ export async function GET(request: NextRequest) {
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
-        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+        // Return the response that has the session cookie cleared
+        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+        });
       }
     }
 
@@ -96,7 +101,8 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Create album request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session state', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
     if (!session.isAdmin) {
@@ -166,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Album created successfully', { albumName, year, groupId, albumPath: albumPath.split('public/albums/')[1] });
 
-    const response = NextResponse.json({
+    const jsonResponse = NextResponse.json({
       success: true,
       message: 'Album created successfully',
       albumPath: albumPath.split('public/albums/')[1],
@@ -174,14 +180,14 @@ export async function POST(request: NextRequest) {
 
     // Add CORS headers if needed for production
     if (process.env.NODE_ENV === 'production') {
-      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      jsonResponse.headers.set('Access-Control-Allow-Credentials', 'true');
       const origin = request.headers.get('origin');
       if (origin) {
-        response.headers.set('Access-Control-Allow-Origin', origin);
+        jsonResponse.headers.set('Access-Control-Allow-Origin', origin);
       }
     }
 
-    return response;
+    return jsonResponse;
   } catch (error) {
     logError(TAG, 'Error creating album', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

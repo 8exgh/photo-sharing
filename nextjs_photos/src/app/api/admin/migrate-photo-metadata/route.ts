@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { promises as fs } from 'fs';
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Migrate photo metadata request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');
@@ -108,7 +109,8 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Migrate all albums request' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

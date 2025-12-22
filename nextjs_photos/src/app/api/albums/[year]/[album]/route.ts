@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos, moveAlbumToYear, renameAlbumFolder } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { AlbumMetadata } from '@/types';
@@ -17,7 +17,8 @@ export async function GET(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Request received', year, album });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {
       log(TAG, 'Unauthorized', { year, album });
@@ -32,7 +33,10 @@ export async function GET(
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
-        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+        });
       }
     }
 
@@ -86,7 +90,8 @@ export async function PUT(
     const { year: currentYear, album } = await params;
     logRequest(TAG, request, { msg: 'Update album request', currentYear, album });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized', { currentYear, album });

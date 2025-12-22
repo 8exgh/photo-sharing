@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { join } from 'path';
 import { VideoMetadata } from '@/types';
@@ -16,7 +16,8 @@ export async function POST(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Add video request', year, album });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');
@@ -74,7 +75,8 @@ export async function DELETE(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Delete video request', year, album });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');

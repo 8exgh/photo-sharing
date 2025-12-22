@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getUnifiedYearItems } from '@/lib/groups';
 import { isValidAccessKey } from '@/lib/access-keys';
 import { logRequest, log, logError } from '@/lib/logger';
@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Request received' });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {
       log(TAG, 'Unauthorized');
@@ -27,7 +28,11 @@ export async function GET(request: NextRequest) {
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
-        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+        // Return with session cookie headers
+        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+        });
       }
     }
 

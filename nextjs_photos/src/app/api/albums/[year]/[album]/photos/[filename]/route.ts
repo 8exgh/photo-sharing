@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
 import { getAlbumsWithGroups } from '@/lib/groups';
 import { join } from 'path';
@@ -18,7 +18,8 @@ export async function PUT(
     const { year, album, filename } = await params;
     logRequest(TAG, request, { msg: 'Update photo text request', year, album, filename });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');
@@ -95,13 +96,14 @@ export async function DELETE(
     const { year, album, filename } = await params;
     logRequest(TAG, request, { msg: 'Delete photo request', year, album, filename });
 
-    const session = await getSession();
+    const response = NextResponse.next();
+    const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     // Sanitize inputs to prevent path traversal
     const cleanYear = sanitizeYear(year);
     const cleanAlbum = sanitizeAlbumName(album);

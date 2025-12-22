@@ -79,8 +79,9 @@ export function generateAccessKey(): string {
          Math.random().toString(36).substring(2, 15);
 }
 
-export async function validateSession(_request?: Request): Promise<SessionData> {
-  const session = await getSession();
+export async function validateSession(request: NextRequest): Promise<SessionData> {
+  const response = NextResponse.next();
+  const session = await getSessionFromRequest(request, response);
   return session;
 }
 
