@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/session';
+import { getSessionFromRequest } from '@/lib/session';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -17,14 +17,19 @@ export async function POST(request: NextRequest) {
     if (password === adminPassword) {
       log(TAG, 'Password correct, creating admin session');
 
-      const session = await getSession();
+      const response = NextResponse.next();
+      const session = await getSessionFromRequest(request, response);
       session.isAuthenticated = true;
       session.isAdmin = true;
       await session.save();
 
       log(TAG, 'Admin session created successfully', { isAuthenticated: true, isAdmin: true });
 
-      return NextResponse.json({ success: true });
+      // Return with session cookie headers
+      return new NextResponse(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+      });
     }
 
     logRequest(TAG, request, { msg: 'Invalid password attempt' });
