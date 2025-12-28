@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # Production instance
+  tik-production:
+    image: ghcr.io/${REGISTRY_OWNER:-tycholaz}/tik-photos:${PROD_VERSION:-latest}
+    container_name: tik-production
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - INSTANCE_TYPE=production
+      - ORCHESTRATOR_URL=http://orchestrator:4000
+      - DATA_DIR=/app/data
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      - ./data/production:/app/data
+      - ./data/production/albums:/app/public/albums
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tik-network
+    labels:
+      - "com.tik-photos.instance=production"
+
+  # Staging instance
+  tik-staging:
+    image: ghcr.io/${REGISTRY_OWNER:-tycholaz}/tik-photos:${STAGING_VERSION:-latest}
+    container_name: tik-staging
+    restart: unless-stopped
+    profiles:
+      - staging
+    environment:
+      - NODE_ENV=production
+      - INSTANCE_TYPE=staging
+      - ORCHESTRATOR_URL=http://orchestrator:4000
+      - DATA_DIR=/app/data
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - NEXT_PUBLIC_PROD_URL=${PROD_URL}
+    volumes:
+      - ./data/staging:/app/data
+      - ./data/staging/albums:/app/public/albums
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tik-network
+    labels:
+      - "com.tik-photos.instance=staging"
+
+  # Orchestrator service for managing upgrades
+  orchestrator:
+    build: ./orchestrator
+    container_name: tik-orchestrator
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATA_PATH=/data
+      - BACKUP_PATH=/backups
+      - COMPOSE_DIR=/deploy
+      - REGISTRY_OWNER=${REGISTRY_OWNER:-tycholaz}
+      - REGISTRY_REPO=tik-photos
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - PROD_CONTAINER=tik-production
+      - STAGING_CONTAINER=tik-staging
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/data
+      - ./backups:/backups
+      - .:/deploy:ro
+    networks:
+      - tik-network
+    labels:
+      - "com.tik-photos.service=orchestrator"
+
+  # Caddy reverse proxy with automatic HTTPS
+  caddy:
+    image: caddy:2-alpine
+    container_name: tik-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - PROD_DOMAIN=${PROD_DOMAIN}
+      - STAGING_DOMAIN=${STAGING_DOMAIN}
+      - STAGING_USER=${STAGING_USER:-admin}
+      - STAGING_PASSWORD_HASH=${STAGING_PASSWORD_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - tik-production
+    networks:
+      - tik-network
+    labels:
+      - "com.tik-photos.service=reverse-proxy"
+
+networks:
+  tik-network:
+    name: tik-network
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

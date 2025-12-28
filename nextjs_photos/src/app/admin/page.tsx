@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GroupMetadata } from '@/types';
+import { GroupMetadata, Release } from '@/types';
 import type { UnifiedYearItem } from '@/lib/groups';
+import SystemStatus from '@/components/SystemStatus';
+import UpgradeModal from '@/components/UpgradeModal';
+import StagingBanner from '@/components/StagingBanner';
 
 interface Album {
   name: string;
@@ -58,6 +61,8 @@ export default function AdminDashboard() {
   const [uploadingFiles, setUploadingFiles] = useState<{[key: string]: boolean}>({});
   const [editingAlbumText, setEditingAlbumText] = useState<string | null>(null);
   const [albumText, setAlbumText] = useState<string>('');
+  const [upgradeRelease, setUpgradeRelease] = useState<Release | null>(null);
+  const [instanceType, setInstanceType] = useState<'production' | 'staging' | 'development'>('development');
   const router = useRouter();
 
   const [newAlbum, setNewAlbum] = useState({
@@ -73,6 +78,7 @@ export default function AdminDashboard() {
     fetchYears();
     fetchAccessKeys();
     fetchBuildInfo();
+    fetchSystemStatus();
   }, []);
 
   useEffect(() => {
@@ -123,6 +129,28 @@ export default function AdminDashboard() {
       setBuildInfo(data);
     } catch (_error) {
       console.error('Error fetching build info:', _error);
+    }
+  };
+
+  const fetchSystemStatus = async () => {
+    try {
+      const response = await fetch('/api/system/status');
+      if (response.ok) {
+        const data = await response.json();
+        setInstanceType(data.system?.instanceType || 'development');
+      }
+    } catch (_error) {
+      // System status might not be available in development
+    }
+  };
+
+  const handlePromoteToProduction = () => {
+    // Redirect to production admin with upgrade intent
+    const prodUrl = process.env.NEXT_PUBLIC_PROD_URL;
+    if (prodUrl) {
+      window.location.href = `${prodUrl}/admin?action=upgrade`;
+    } else {
+      setMessage('Production URL not configured');
     }
   };
 
@@ -461,7 +489,24 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-800 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Staging Banner */}
+      <StagingBanner onPromoteClick={handlePromoteToProduction} />
+
+      {/* Upgrade Modal */}
+      {upgradeRelease && (
+        <UpgradeModal
+          release={upgradeRelease}
+          instanceType={instanceType}
+          onClose={() => setUpgradeRelease(null)}
+          onUpgradeComplete={() => {
+            setMessage('Upgrade completed successfully!');
+            setUpgradeRelease(null);
+            fetchSystemStatus();
+          }}
+        />
+      )}
+
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${instanceType === 'staging' ? 'pt-12' : ''}`}>
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center space-x-4">
             <h1 className="text-3xl font-bold text-slate-100">Admin Dashboard</h1>
@@ -859,8 +904,12 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Access Keys Section */}
-          <div>
+          {/* System Status & Access Keys Section */}
+          <div className="space-y-6">
+            {/* System Status */}
+            <SystemStatus onUpgradeClick={(release) => setUpgradeRelease(release)} />
+
+            {/* Access Keys */}
             <div className="bg-slate-700 shadow rounded-lg p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-semibold text-slate-100">Access Keys</h2>

@@ -1,0 +1,51 @@
+# Tik Photos Caddy Configuration
+# Provides automatic HTTPS via Let's Encrypt
+
+{
+	email {$ADMIN_EMAIL}
+}
+
+# Production domain
+{$PROD_DOMAIN} {
+	reverse_proxy tik-production:3000
+
+	# Security headers
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		X-XSS-Protection "1; mode=block"
+		-Server
+	}
+
+	# Logging
+	log {
+		output file /var/log/caddy/production.log
+		format json
+	}
+}
+
+# Staging domain (with basic auth)
+{$STAGING_DOMAIN} {
+	# Basic auth protection for staging
+	basicauth {
+		{$STAGING_USER} {$STAGING_PASSWORD_HASH}
+	}
+
+	reverse_proxy tik-staging:3001
+
+	# Security headers
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		X-XSS-Protection "1; mode=block"
+		-Server
+	}
+
+	# Logging
+	log {
+		output file /var/log/caddy/staging.log
+		format json
+	}
+}

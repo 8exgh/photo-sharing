@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist/migrations",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": false,
+    "noEmit": false
+  },
+  "include": [
+    "src/migrations/**/*.ts",
+    "src/lib/schema.ts",
+    "scripts/run-migrations.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

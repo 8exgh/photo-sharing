@@ -58,3 +58,32 @@ export interface AlbumWithGroup {
   groupId?: string;
   isNested?: boolean;
 }
+
+// System/Upgrade types
+export interface SystemInfo {
+  instanceType: 'production' | 'staging' | 'development';
+  version: string;
+  gitHash: string;
+  gitBranch: string;
+  buildNumber: string;
+  buildTime: string;
+  schemaVersion: number;
+  appSchemaVersion: number;
+  needsMigration: boolean;
+}
+
+export interface Release {
+  version: string;
+  tag: string;
+  publishedAt: string;
+  releaseNotes: string;
+}
+
+export interface UpgradeState {
+  status: 'idle' | 'preparing' | 'upgrading' | 'verifying' | 'completed' | 'failed';
+  target: 'staging' | 'production' | null;
+  targetVersion: string | null;
+  currentStep: string | null;
+  progress: number;
+  error: string | null;
+}

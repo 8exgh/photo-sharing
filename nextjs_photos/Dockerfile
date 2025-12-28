@@ -24,8 +24,8 @@ COPY . .
 # copy env file if exists
 COPY .env.local* ./
 
-# build
-RUN npm run build
+# build Next.js app and migrations
+RUN npm run build:all
 
 # ---------- 2) runtime stage ----------
 FROM node:20-alpine AS runner
@@ -52,6 +52,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.env.local* ./
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
