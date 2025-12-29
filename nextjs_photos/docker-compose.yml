@@ -3,16 +3,18 @@ version: '3.8'
 services:
   # Production instance
   tik-production:
-    image: ghcr.io/${REGISTRY_OWNER:-tycholaz}/tik-photos:${PROD_VERSION:-latest}
+    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER must be set}/tik-photos:${PROD_VERSION:-latest}
     container_name: tik-production
     restart: unless-stopped
+    ports:
+      - "${PROD_PORT:?PROD_PORT must be set}:3000"
     environment:
       - NODE_ENV=production
       - INSTANCE_TYPE=production
       - ORCHESTRATOR_URL=http://orchestrator:4000
       - DATA_DIR=/app/data
-      - SESSION_SECRET=${SESSION_SECRET}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
     volumes:
       - ./data/production:/app/data
       - ./data/production/albums:/app/public/albums
@@ -29,18 +31,20 @@ services:
 
   # Staging instance
   tik-staging:
-    image: ghcr.io/${REGISTRY_OWNER:-tycholaz}/tik-photos:${STAGING_VERSION:-latest}
+    image: ghcr.io/${REGISTRY_OWNER:?REGISTRY_OWNER must be set}/tik-photos:${STAGING_VERSION:-latest}
     container_name: tik-staging
     restart: unless-stopped
     profiles:
       - staging
+    ports:
+      - "${STAGING_PORT:?STAGING_PORT must be set}:3000"
     environment:
       - NODE_ENV=production
       - INSTANCE_TYPE=staging
       - ORCHESTRATOR_URL=http://orchestrator:4000
       - DATA_DIR=/app/data
-      - SESSION_SECRET=${SESSION_SECRET}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET:?SESSION_SECRET must be set}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD must be set}
       - NEXT_PUBLIC_PROD_URL=${PROD_URL}
     volumes:
       - ./data/staging:/app/data
@@ -61,13 +65,15 @@ services:
     build: ./orchestrator
     container_name: tik-orchestrator
     restart: unless-stopped
+    ports:
+      - "${ORCHESTRATOR_PORT:?ORCHESTRATOR_PORT must be set}:4000"
     environment:
       - NODE_ENV=production
       - PORT=4000
       - DATA_PATH=/data
       - BACKUP_PATH=/backups
       - COMPOSE_DIR=/deploy
-      - REGISTRY_OWNER=${REGISTRY_OWNER:-tycholaz}
+      - REGISTRY_OWNER=${REGISTRY_OWNER:?REGISTRY_OWNER must be set}
       - REGISTRY_REPO=tik-photos
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - PROD_CONTAINER=tik-production
@@ -88,8 +94,8 @@ services:
     container_name: tik-caddy
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${HTTP_PORT:?HTTP_PORT must be set}:80"
+      - "${HTTPS_PORT:?HTTPS_PORT must be set}:443"
     environment:
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - PROD_DOMAIN=${PROD_DOMAIN}
