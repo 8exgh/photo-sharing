@@ -33,7 +33,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install su-exec for dropping privileges
-RUN apk add --no-cache su-exec
+RUN apk add --no-cache su-exec wget
 
 # Set data directory environment variables for volume mounts
 ENV DATA_DIR=/app/data
