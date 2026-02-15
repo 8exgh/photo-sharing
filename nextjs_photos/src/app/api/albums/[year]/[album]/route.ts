@@ -17,7 +17,7 @@ export async function GET(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Request received', year, album });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {
@@ -90,7 +90,7 @@ export async function PUT(
     const { year: currentYear, album } = await params;
     logRequest(TAG, request, { msg: 'Update album request', currentYear, album });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

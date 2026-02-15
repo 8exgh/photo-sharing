@@ -18,7 +18,7 @@ export async function GET(
     logRequest(TAG, request, { msg: 'Thumbnail request', pathLength: path?.length });
 
     // Use request-based session getter for more reliable cookie reading
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {

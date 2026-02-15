@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Request received' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Create access key request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
@@ -62,7 +62,7 @@ export async function DELETE(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Delete access key request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 

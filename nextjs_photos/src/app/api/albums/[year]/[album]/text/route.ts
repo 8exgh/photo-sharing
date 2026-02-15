@@ -15,7 +15,7 @@ export async function PUT(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Update album text request', year, album });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Logout request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
     const wasAdmin = session.isAdmin;
     session.destroy();

@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     if (password === adminPassword) {
       log(TAG, 'Password correct, creating admin session');
 
-      const response = NextResponse.next();
+      const response = new NextResponse();
       const session = await getSessionFromRequest(request, response);
       session.isAuthenticated = true;
       session.isAdmin = true;

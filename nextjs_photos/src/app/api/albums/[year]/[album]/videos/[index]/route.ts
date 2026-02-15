@@ -15,7 +15,7 @@ export async function PUT(
     const { year, album, index } = await params;
     logRequest(TAG, request, { msg: 'Update video request', year, album, index });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

@@ -19,7 +19,7 @@ export async function POST(
     const { year, album } = await params;
     logRequest(TAG, request, { msg: 'Upload photo request', year, album });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

@@ -18,7 +18,7 @@ export async function PUT(
     const { year, album, filename } = await params;
     logRequest(TAG, request, { msg: 'Update photo text request', year, album, filename });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
@@ -96,7 +96,7 @@ export async function DELETE(
     const { year, album, filename } = await params;
     logRequest(TAG, request, { msg: 'Delete photo request', year, album, filename });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

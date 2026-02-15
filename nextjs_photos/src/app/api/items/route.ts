@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Request received' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAuthenticated) {

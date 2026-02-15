@@ -18,7 +18,7 @@ export async function POST(
     const { year, album, filename } = await params;
     logRequest(TAG, request, { msg: 'Rotate photo request', year, album, filename });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

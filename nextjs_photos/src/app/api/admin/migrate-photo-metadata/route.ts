@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Migrate photo metadata request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Migrate all albums request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

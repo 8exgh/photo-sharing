@@ -80,7 +80,7 @@ export function generateAccessKey(): string {
 }
 
 export async function validateSession(request: NextRequest): Promise<SessionData> {
-  const response = NextResponse.next();
+  const response = new NextResponse();
   const session = await getSessionFromRequest(request, response);
   return session;
 }

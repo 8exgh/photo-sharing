@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Reorder group request' });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {

@@ -18,7 +18,7 @@ export async function POST(
     const { year: sourceYear, album: sourceAlbum, filename } = await params;
     logRequest(TAG, request, { msg: 'Move photo request', sourceYear, sourceAlbum, filename });
 
-    const response = NextResponse.next();
+    const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
     if (!session.isAdmin) {
