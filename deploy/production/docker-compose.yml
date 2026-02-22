@@ -1,0 +1,48 @@
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/8exgh/tik_tycholaz:latest}
+    restart: unless-stopped
+    volumes:
+      - app-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - SESSION_SECRET=${SESSION_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - DATA_DIR=/app/data
+      - ALBUMS_DIR=/app/data/albums
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      - DOMAIN=${DOMAIN}
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /root/.docker/config.json:/config.json:ro
+    environment:
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_CLEANUP=true
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:
