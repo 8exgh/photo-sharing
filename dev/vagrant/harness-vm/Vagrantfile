@@ -30,4 +30,9 @@ Vagrant.configure("2") do |config|
     usermod -aG docker vagrant
     systemctl enable --now docker
   SHELL
+
+  config.vm.provision "shell", inline: <<-SHELL
+    cd /opt/deploy
+    bash setup.sh test.local changeme
+  SHELL
 end
