@@ -1,3 +1,14 @@
+# Load .secrets file (KEY=VALUE, one per line) if present
+secrets_file = File.join(__dir__, '.secrets')
+if File.exist?(secrets_file)
+  File.readlines(secrets_file).each do |line|
+    line = line.strip
+    next if line.empty? || line.start_with?('#')
+    key, value = line.split('=', 2)
+    ENV[key] = value if key && value && !ENV.key?(key)
+  end
+end
+
 Vagrant.configure("2") do |config|
   config.vm.box = "bento/ubuntu-24.04"
   config.vm.hostname = "harness"
@@ -31,8 +42,14 @@ Vagrant.configure("2") do |config|
     systemctl enable --now docker
   SHELL
 
-  config.vm.provision "shell", inline: <<-SHELL
-    cd /opt/deploy
-    bash setup.sh test.local changeme
-  SHELL
+  config.vm.provision "shell",
+    env: {"GHCR_TOKEN" => ENV['GHCR_TOKEN']},
+    inline: <<-SHELL
+      cd /opt/deploy
+      cp .env.example .env
+      if [ -n "$GHCR_TOKEN" ]; then
+        sed -i "s|^GHCR_TOKEN=.*|GHCR_TOKEN=${GHCR_TOKEN}|" .env
+      fi
+      bash setup.sh test.local changeme
+    SHELL
 end
