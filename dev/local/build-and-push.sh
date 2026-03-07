@@ -26,7 +26,7 @@ echo "    git hash:   ${GIT_HASH:0:12}"
 echo "    branch:     ${GIT_BRANCH}"
 echo "    build time: ${BUILD_TIME}"
 
-docker build \
+DOCKER_BUILDKIT=1 docker build \
   -f "$REPO_ROOT/app/Dockerfile" \
   --build-arg NEXT_PUBLIC_GIT_HASH="$GIT_HASH" \
   --build-arg NEXT_PUBLIC_GIT_BRANCH="$GIT_BRANCH" \
