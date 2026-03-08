@@ -5,6 +5,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // Log session configuration for debugging
 const isProduction = process.env.NODE_ENV === 'production';
+const cookieSecure = process.env.COOKIE_SECURE !== undefined
+  ? process.env.COOKIE_SECURE !== 'false'
+  : isProduction;
 
 // Use sessionSecret without validation at module level (for build compatibility)
 const sessionSecret = process.env.SESSION_SECRET || 'change-this-to-a-secure-secret-key-at-least-32-characters-long';
@@ -17,14 +20,14 @@ console.log('[Session Config] Initializing with:', {
   isProduction,
   hasCustomSecret: process.env.SESSION_SECRET !== undefined,
   secretLength: sessionSecret.length,
-  cookieSecure: isProduction,
+  cookieSecure,
 });
 
 export const sessionConfig = {
   password: sessionSecret,
   cookieName: 'photo-album-session',
   cookieOptions: {
-    secure: isProduction,
+    secure: cookieSecure,
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 7, // 1 week
     sameSite: 'lax' as const, // Add explicit sameSite policy
