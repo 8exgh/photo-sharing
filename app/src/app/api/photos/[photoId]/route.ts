@@ -24,6 +24,11 @@ export async function PUT(
 
     const { text } = await request.json();
 
+    const MAX_TEXT_LENGTH = 10000;
+    if (typeof text === 'string' && text.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json({ error: `Text too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 });
+    }
+
     const updated = updatePhotoText(photoId, text || '');
     if (!updated) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
