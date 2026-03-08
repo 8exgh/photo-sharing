@@ -3,21 +3,34 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GroupMetadata } from '@/types';
-import type { UnifiedYearItem } from '@/lib/groups';
 
 interface Album {
+  albumId: string;
   name: string;
-  path: string;
-  metadata: {
-    name: string;
-    location: string;
-    description: string;
-    text?: string;
-    created: string;
-  } | null;
-  groupId?: string;
-  isNested?: boolean;
+  urlName: string;
+  location: string;
+  description: string;
+  text?: string;
+  created: string;
+  displayOrder: number;
+  groupId: string | null;
+}
+
+interface GroupInfo {
+  id: string;
+  displayName: string;
+  description: string;
+  albumCount: number;
+  displayOrder: number;
+}
+
+interface UnifiedYearItem {
+  type: 'group' | 'album';
+  id: string;
+  displayOrder: number;
+  group?: GroupInfo;
+  album?: Album;
+  albumsInGroup?: Album[];
 }
 
 interface BuildInfo {
@@ -33,7 +46,7 @@ export default function AdminDashboard() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
-  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [unifiedItems, setUnifiedItems] = useState<UnifiedYearItem[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -42,13 +55,13 @@ export default function AdminDashboard() {
   const [message, setMessage] = useState('');
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
 
-  // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
+  // Auto-dismiss message based on length
   useEffect(() => {
     if (message) {
-      const baseTime = 4000; // 4 seconds
+      const baseTime = 4000;
       const extraTime = message.length > 15 ? Math.floor((message.length - 15) / 10) * 1000 : 0;
       const timeout = baseTime + extraTime;
-      
+
       const timer = setTimeout(() => {
         setMessage('');
       }, timeout);
@@ -214,7 +227,7 @@ export default function AdminDashboard() {
   const handleDeleteAccessKey = async (keyToDelete: string) => {
     const confirmed = confirm('Are you sure you want to delete this access key? This action cannot be undone.');
     if (!confirmed) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch('/api/access-keys', {
@@ -239,34 +252,34 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUploadPhotos = async (year: string, albumName: string) => {
+  const handleUploadPhotos = async (year: string, albumUrlName: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (!files || files.length === 0) return;
-      
-      const albumKey = `${year}/${albumName}`;
+
+      const albumKey = `${year}/${albumUrlName}`;
       setUploadingFiles(prev => ({ ...prev, [albumKey]: true }));
-      
+
       try {
         for (const file of Array.from(files)) {
           const formData = new FormData();
           formData.append('file', file);
-          
-          const response = await fetch(`/api/albums/${year}/${albumName}/upload`, {
+
+          const response = await fetch(`/api/albums/${year}/${albumUrlName}/upload`, {
             method: 'POST',
             body: formData,
           });
-          
+
           if (!response.ok) {
             throw new Error(`Failed to upload ${file.name}`);
           }
         }
-        
+
         setMessage(`Successfully uploaded ${files.length} photo(s)`);
         if (selectedYear === year) {
           fetchAlbums(selectedYear);
@@ -277,19 +290,19 @@ export default function AdminDashboard() {
         setUploadingFiles(prev => ({ ...prev, [albumKey]: false }));
       }
     };
-    
+
     input.click();
   };
 
-  const handleAddVideo = async (year: string, albumName: string) => {
+  const handleAddVideo = async (year: string, albumUrlName: string) => {
     const url = prompt('Enter video URL:');
     const title = prompt('Enter video title:');
-    
+
     if (!url || !title) return;
-    
+
     setLoading(true);
     try {
-      const response = await fetch(`/api/albums/${year}/${albumName}/videos`, {
+      const response = await fetch(`/api/albums/${year}/${albumUrlName}/videos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -313,15 +326,15 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleEditAlbumText = async (year: string, albumName: string, currentText: string) => {
-    setEditingAlbumText(`${year}/${albumName}`);
+  const handleEditAlbumText = async (year: string, albumUrlName: string, currentText: string) => {
+    setEditingAlbumText(`${year}/${albumUrlName}`);
     setAlbumText(currentText || '');
   };
 
-  const handleSaveAlbumText = async (year: string, albumName: string) => {
+  const handleSaveAlbumText = async (year: string, albumUrlName: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/albums/${year}/${albumName}/text`, {
+      const response = await fetch(`/api/albums/${year}/${albumUrlName}/text`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -361,7 +374,7 @@ export default function AdminDashboard() {
         },
         body: JSON.stringify({
           year: selectedYear,
-          albumPath: album.path,
+          albumId: album.albumId,
           direction,
           groupId: album.groupId,
         }),
@@ -413,7 +426,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleMoveAlbum = async (albumPath: string, targetGroupId: string) => {
+  const handleMoveAlbum = async (albumId: string, targetGroupId: string) => {
     setLoading(true);
     try {
       const response = await fetch('/api/albums/move', {
@@ -422,8 +435,7 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          albumPath,
-          year: selectedYear,
+          albumId,
           groupId: targetGroupId || null,
         }),
       });
@@ -573,9 +585,9 @@ export default function AdminDashboard() {
                               <>
                                 <span className="text-blue-400">📷</span>
                                 <div>
-                                  <span className="text-slate-100">{item.album?.metadata?.name || item.album?.name}</span>
-                                  {item.album?.metadata?.description && (
-                                    <span className="text-slate-400 text-sm ml-2">- {item.album.metadata.description}</span>
+                                  <span className="text-slate-100">{item.album?.name}</span>
+                                  {item.album?.description && (
+                                    <span className="text-slate-400 text-sm ml-2">- {item.album.description}</span>
                                   )}
                                 </div>
                               </>
@@ -699,7 +711,7 @@ export default function AdminDashboard() {
                     </option>
                   ))}
                 </select>
-                
+
                 {selectedYear && (
                   <select
                     value={selectedGroup}
@@ -719,7 +731,7 @@ export default function AdminDashboard() {
 
               <div className="space-y-4">
                 {filteredAlbums.map((album, index) => (
-                  <div key={album.path} className={`border border-slate-600 rounded-md p-4 bg-slate-800 ${album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''}`}>
+                  <div key={album.albumId} className="border border-slate-600 rounded-md p-4 bg-slate-800">
                     <div className="flex justify-between items-start">
                       <div className="flex items-start space-x-2">
                         {/* Up/Down controls */}
@@ -747,13 +759,12 @@ export default function AdminDashboard() {
                         </div>
                         <div className="flex-1">
                           <h3 className="font-semibold text-lg text-slate-100">
-                            {album.metadata?.name || album.name}
-                            {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                            {album.name}
                           </h3>
-                          <p className="text-slate-300">{album.metadata?.location}</p>
-                          <p className="text-slate-300">{album.metadata?.description}</p>
+                          <p className="text-slate-300">{album.location}</p>
+                          <p className="text-slate-300">{album.description}</p>
                           <p className="text-sm text-slate-400">
-                            Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
+                            Created: {album.created ? new Date(album.created).toLocaleDateString() : 'Unknown'}
                           </p>
                           {album.groupId && (
                             <p className="text-sm text-purple-400">
@@ -764,7 +775,7 @@ export default function AdminDashboard() {
                       </div>
                       <div className="ml-4">
                         <select
-                          onChange={(e) => handleMoveAlbum(album.path, e.target.value)}
+                          onChange={(e) => handleMoveAlbum(album.albumId, e.target.value)}
                           className="px-2 py-1 text-sm border border-slate-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-700 text-slate-100"
                           defaultValue={album.groupId || ''}
                         >
@@ -778,9 +789,9 @@ export default function AdminDashboard() {
                         </select>
                       </div>
                     </div>
-                    
+
                     {/* Album Text Section */}
-                    {editingAlbumText === `${selectedYear}/${album.name}` ? (
+                    {editingAlbumText === `${selectedYear}/${album.urlName}` ? (
                       <div className="mt-4 p-3 border border-slate-600 rounded-md bg-slate-700">
                         <label className="block text-sm font-medium text-slate-300 mb-2">
                           Album Text
@@ -800,7 +811,7 @@ export default function AdminDashboard() {
                             Cancel
                           </button>
                           <button
-                            onClick={() => handleSaveAlbumText(selectedYear, album.name)}
+                            onClick={() => handleSaveAlbumText(selectedYear, album.urlName)}
                             disabled={loading}
                             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                           >
@@ -810,44 +821,44 @@ export default function AdminDashboard() {
                       </div>
                     ) : (
                       <div className="mt-4">
-                        {album.metadata?.text && (
+                        {album.text && (
                           <div className="mb-2 p-2 border border-slate-600 rounded bg-slate-800">
                             <p className="text-sm text-slate-300 whitespace-pre-wrap">
-                              {album.metadata.text}
+                              {album.text}
                             </p>
                           </div>
                         )}
                       </div>
                     )}
-                    
+
                     <div className="mt-2 space-x-2">
                       <button
-                        onClick={() => handleUploadPhotos(selectedYear, album.name)}
-                        disabled={uploadingFiles[`${selectedYear}/${album.name}`]}
+                        onClick={() => handleUploadPhotos(selectedYear, album.urlName)}
+                        disabled={uploadingFiles[`${selectedYear}/${album.urlName}`]}
                         className="text-blue-400 hover:text-blue-300 text-sm disabled:opacity-50"
                       >
-                        {uploadingFiles[`${selectedYear}/${album.name}`] ? 'Uploading...' : 'Upload Photos'}
+                        {uploadingFiles[`${selectedYear}/${album.urlName}`] ? 'Uploading...' : 'Upload Photos'}
                       </button>
                       <button
-                        onClick={() => handleAddVideo(selectedYear, album.name)}
+                        onClick={() => handleAddVideo(selectedYear, album.urlName)}
                         className="text-emerald-400 hover:text-emerald-300 text-sm"
                       >
                         Add Video
                       </button>
                       <button
-                        onClick={() => handleEditAlbumText(selectedYear, album.name, album.metadata?.text || '')}
+                        onClick={() => handleEditAlbumText(selectedYear, album.urlName, album.text || '')}
                         className="text-yellow-400 hover:text-yellow-300 text-sm"
                       >
                         Edit Text
                       </button>
                       <Link
-                        href={`/admin/albums/${selectedYear}/${album.name}/edit`}
+                        href={`/admin/albums/${selectedYear}/${album.urlName}/edit`}
                         className="text-green-400 hover:text-green-300 text-sm"
                       >
                         Edit Album Details
                       </Link>
                       <Link
-                        href={`/admin/albums/${selectedYear}/${album.name}`}
+                        href={`/admin/albums/${selectedYear}/${album.urlName}`}
                         className="text-purple-400 hover:text-purple-300 text-sm"
                       >
                         Manage Content
@@ -910,7 +921,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-        
+
         {/* Build Info Footer */}
         {buildInfo && (
           <div className="mt-8 py-4 border-t border-slate-600">
@@ -922,11 +933,11 @@ export default function AdminDashboard() {
                     {buildInfo.gitHashShort}
                   </span>
                 </span>
-                
+
                 {buildInfo.buildNumber !== 'local' && (
                   <span className="text-slate-600">•</span>
                 )}
-                
+
                 {buildInfo.buildNumber !== 'local' && (
                   <span>
                     <span className="text-slate-600">Run:</span>
@@ -935,7 +946,7 @@ export default function AdminDashboard() {
                     </span>
                   </span>
                 )}
-                
+
                 {buildInfo.gitBranch !== 'unknown' && (
                   <>
                     <span className="text-slate-600">•</span>
@@ -947,18 +958,18 @@ export default function AdminDashboard() {
                     </span>
                   </>
                 )}
-                
+
                 <span className="text-slate-600">•</span>
-                
+
                 <span>
                   <span className="text-slate-600">Built:</span>
                   <span className="ml-1 text-slate-400">
-                    {buildInfo.buildTime !== 'unknown' 
+                    {buildInfo.buildTime !== 'unknown'
                       ? new Date(buildInfo.buildTime).toLocaleString()
                       : 'unknown'}
                   </span>
                 </span>
-                
+
                 {buildInfo.nodeEnv === 'development' && (
                   <>
                     <span className="text-slate-600">•</span>

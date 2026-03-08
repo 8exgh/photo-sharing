@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import {AlbumWithGroup} from "@/types";
 
 interface AlbumData {
+  albumId: string;
   metadata: {
     name: string;
     location: string;
@@ -14,39 +14,40 @@ interface AlbumData {
     text?: string;
     created: string;
     photos: Array<{
-      filename: string;
+      id: string;
+      originalFilename: string;
       title: string;
+      text: string;
+      width: number;
+      height: number;
+      fileSize: number;
       uploadDate: string;
-      description: string;
-      text?: string;
-      width?: number;
-      height?: number;
-      fileSize?: number;
     }>;
     videos: Array<{
+      id: string;
       url: string;
       title: string;
+      text: string;
       addedDate: string;
-      text?: string;
     }>;
   };
-  photos: string[];
-  albumPath: string;
+  groupId?: string;
+  firstPhotoId?: string;
 }
 
 // Helper function to format file size
 function formatFileSize(bytes?: number): string {
   if (!bytes) return 'Unknown';
-  
+
   const units = ['B', 'KB', 'MB', 'GB'];
   let size = bytes;
   let unitIndex = 0;
-  
+
   while (size >= 1024 && unitIndex < units.length - 1) {
     size /= 1024;
     unitIndex++;
   }
-  
+
   return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
@@ -56,7 +57,7 @@ function getYouTubeVideoId(url: string): string | null {
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
   ];
-  
+
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) {
@@ -84,7 +85,7 @@ export default function AlbumContentManager() {
       const baseTime = 4000; // 4 seconds
       const extraTime = message.length > 15 ? Math.floor((message.length - 15) / 10) * 1000 : 0;
       const timeout = baseTime + extraTime;
-      
+
       const timer = setTimeout(() => {
         setMessage('');
       }, timeout);
@@ -93,20 +94,20 @@ export default function AlbumContentManager() {
   }, [message]);
 
   const [editingPhoto, setEditingPhoto] = useState<string | null>(null);
-  const [editingVideo, setEditingVideo] = useState<number | null>(null);
+  const [editingVideo, setEditingVideo] = useState<string | null>(null);
   const [photoText, setPhotoText] = useState('');
   const [videoText, setVideoText] = useState('');
   const [deletingPhoto, setDeletingPhoto] = useState<string | null>(null);
   const [rotatingPhoto, setRotatingPhoto] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [albumTitle, setAlbumTitle] = useState('');
-  const [editingVideoTitle, setEditingVideoTitle] = useState<number | null>(null);
+  const [editingVideoTitle, setEditingVideoTitle] = useState<string | null>(null);
   const [videoTitle, setVideoTitle] = useState('');
   const [scrollPosition, setScrollPosition] = useState<number | null>(null);
   const [imageRefreshKey, setImageRefreshKey] = useState(Date.now());
   const [showMoveModal, setShowMoveModal] = useState(false);
-  const [photoToMove, setPhotoToMove] = useState<{filename: string; title: string} | null>(null);
-  const [availableAlbums, setAvailableAlbums] = useState<Array<{name: string; year: string; displayName: string}>>([]);
+  const [photoToMove, setPhotoToMove] = useState<{id: string; title: string} | null>(null);
+  const [availableAlbums, setAvailableAlbums] = useState<Array<{urlName: string; year: string; displayName: string}>>([]);
   const [selectedTargetAlbum, setSelectedTargetAlbum] = useState<{year: string; album: string} | null>(null);
   const [movingPhoto, setMovingPhoto] = useState(false);
 
@@ -114,7 +115,7 @@ export default function AlbumContentManager() {
     try {
       const response = await fetch(`/api/albums/${params.year}/${params.album}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setAlbum(data);
         setAlbumTitle(data.metadata.name || '');
@@ -140,17 +141,17 @@ export default function AlbumContentManager() {
     }
   }, [loading, scrollPosition]);
 
-  const handleEditPhotoText = (filename: string, currentText: string) => {
-    setEditingPhoto(filename);
+  const handleEditPhotoText = (photoId: string, currentText: string) => {
+    setEditingPhoto(photoId);
     setPhotoText(currentText || '');
   };
 
-  const handleSavePhotoText = async (filename: string) => {
+  const handleSavePhotoText = async (photoId: string) => {
     // Capture current scroll position before saving
     setScrollPosition(window.scrollY);
     setLoading(true);
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}/photos/${filename}`, {
+      const response = await fetch(`/api/photos/${photoId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -173,17 +174,17 @@ export default function AlbumContentManager() {
     }
   };
 
-  const handleEditVideoText = (index: number, currentText: string) => {
-    setEditingVideo(index);
+  const handleEditVideoText = (videoId: string, currentText: string) => {
+    setEditingVideo(videoId);
     setVideoText(currentText || '');
   };
 
-  const handleSaveVideoText = async (index: number) => {
+  const handleSaveVideoText = async (videoId: string) => {
     // Capture current scroll position before saving
     setScrollPosition(window.scrollY);
     setLoading(true);
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}/videos/${index}`, {
+      const response = await fetch(`/api/videos/${videoId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -206,19 +207,22 @@ export default function AlbumContentManager() {
     }
   };
 
-  const handleSaveVideoTitle = async (index: number) => {
+  const handleSaveVideoTitle = async (videoId: string) => {
     if (!album) return;
-    
-    if (videoTitle.trim() === album.metadata.videos[index].title) {
+
+    const video = album.metadata.videos.find(v => v.id === videoId);
+    if (!video) return;
+
+    if (videoTitle.trim() === video.title) {
       setEditingVideoTitle(null);
       return;
     }
-    
+
     // Capture current scroll position before saving
     setScrollPosition(window.scrollY);
     setLoading(true);
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}/videos/${index}`, {
+      const response = await fetch(`/api/videos/${videoId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -233,12 +237,13 @@ export default function AlbumContentManager() {
         fetchAlbum();
       } else {
         setMessage(data.error || 'Failed to update video title');
-        setVideoTitle(album.metadata.videos[index].title); // Reset to original
+        setVideoTitle(video.title); // Reset to original
       }
     } catch (_error) {
       setMessage('Network error while updating title');
       if (album) {
-        setVideoTitle(album.metadata.videos[index].title); // Reset to original
+        const v = album.metadata.videos.find(v => v.id === videoId);
+        if (v) setVideoTitle(v.title); // Reset to original
       }
     } finally {
       setLoading(false);
@@ -262,7 +267,7 @@ export default function AlbumContentManager() {
       setEditingTitle(false);
       return;
     }
-    
+
     // Capture current scroll position before saving
     setScrollPosition(window.scrollY);
     setLoading(true);
@@ -302,14 +307,14 @@ export default function AlbumContentManager() {
     setAlbumTitle(album?.metadata.name || '');
   };
 
-  const handleDeletePhoto = async (filename: string) => {
+  const handleDeletePhoto = async (photoId: string) => {
     if (!confirm(`Are you sure you want to permanently delete this photo? This action cannot be undone.`)) {
       return;
     }
-    
-    setDeletingPhoto(filename);
+
+    setDeletingPhoto(photoId);
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}/photos/${filename}`, {
+      const response = await fetch(`/api/photos/${photoId}`, {
         method: 'DELETE',
       });
 
@@ -327,12 +332,12 @@ export default function AlbumContentManager() {
     }
   };
 
-  const handleRotatePhoto = async (filename: string) => {
+  const handleRotatePhoto = async (photoId: string) => {
     // Capture current scroll position before rotating
     setScrollPosition(window.scrollY);
-    setRotatingPhoto(filename);
+    setRotatingPhoto(photoId);
     try {
-      const response = await fetch(`/api/albums/${params.year}/${params.album}/photos/${filename}/rotate`, {
+      const response = await fetch(`/api/photos/${photoId}/rotate`, {
         method: 'POST',
       });
 
@@ -352,28 +357,28 @@ export default function AlbumContentManager() {
     }
   };
 
-  const handleOpenMoveModal = async (filename: string, title: string) => {
-    setPhotoToMove({ filename, title });
+  const handleOpenMoveModal = async (photoId: string, title: string) => {
+    setPhotoToMove({ id: photoId, title });
     setShowMoveModal(true);
     setSelectedTargetAlbum(null);
-    
+
     // Fetch all available albums
     try {
       const response = await fetch('/api/albums');
       const data = await response.json();
-      const allAlbums: Array<{name: string; year: string; displayName: string}> = [];
-      
+      const allAlbums: Array<{urlName: string; year: string; displayName: string}> = [];
+
       if (data.years) {
         for (const year of data.years) {
           const yearResponse = await fetch(`/api/albums?year=${year}`);
           const yearData = await yearResponse.json();
-          
+
           if (yearData.albums) {
-            yearData.albums.forEach((album: AlbumWithGroup) => {
+            yearData.albums.forEach((album: { albumId: string; name: string; urlName: string; metadata?: { name?: string } }) => {
               // Don't include the current album
-              if (!(year === params.year && album.name === params.album)) {
+              if (!(year === params.year && album.urlName === params.album)) {
                 allAlbums.push({
-                  name: album.name,
+                  urlName: album.urlName,
                   year: year,
                   displayName: `${year} - ${album.metadata?.name || album.name}`,
                 });
@@ -382,7 +387,7 @@ export default function AlbumContentManager() {
           }
         }
       }
-      
+
       setAvailableAlbums(allAlbums);
     } catch (error) {
       console.error('Error fetching albums:', error);
@@ -392,11 +397,11 @@ export default function AlbumContentManager() {
 
   const handleMovePhoto = async () => {
     if (!photoToMove || !selectedTargetAlbum) return;
-    
+
     setMovingPhoto(true);
     try {
       const response = await fetch(
-        `/api/albums/${params.year}/${params.album}/photos/${photoToMove.filename}/move`,
+        `/api/photos/${photoToMove.id}/move`,
         {
           method: 'POST',
           headers: {
@@ -432,32 +437,25 @@ export default function AlbumContentManager() {
     setSelectedTargetAlbum(null);
   };
 
-  const handleMigrateMetadata = async () => {
-    setLoading(true);
+  const handleDeleteVideo = async (videoId: string) => {
+    if (!confirm(`Are you sure you want to remove this video? This action cannot be undone.`)) {
+      return;
+    }
+
     try {
-      const response = await fetch('/api/admin/migrate-photo-metadata', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          year: params.year,
-          album: params.album,
-        }),
+      const response = await fetch(`/api/albums/${params.year}/${params.album}/videos?videoId=${videoId}`, {
+        method: 'DELETE',
       });
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(`Metadata updated for ${data.updatedCount} photos`);
-        fetchAlbum(); // Refresh to show new metadata
+        setMessage('Video deleted successfully');
+        fetchAlbum();
       } else {
-        setMessage(data.error || 'Failed to update metadata');
+        setMessage(data.error || 'Failed to delete video');
       }
-    } catch (error) {
-      console.error(error);
-      setMessage('Network error while updating metadata');
-    } finally {
-      setLoading(false);
+    } catch (_error) {
+      setMessage('Network error while deleting video');
     }
   };
 
@@ -466,38 +464,38 @@ export default function AlbumContentManager() {
     input.type = 'file';
     input.accept = 'image/*';
     input.multiple = true;
-    
+
     input.onchange = async (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (!files || files.length === 0) return;
-      
+
       setUploadingPhotos(true);
       let successCount = 0;
       let errorCount = 0;
-      
+
       try {
         for (const file of Array.from(files)) {
           const formData = new FormData();
           formData.append('file', file);
-          
+
           const response = await fetch(`/api/albums/${params.year}/${params.album}/upload`, {
             method: 'POST',
             body: formData,
           });
-          
+
           if (response.ok) {
             successCount++;
           } else {
             errorCount++;
           }
         }
-        
+
         if (errorCount === 0) {
           setMessage(`Successfully uploaded ${successCount} photo(s)`);
         } else {
           setMessage(`Uploaded ${successCount} photo(s), ${errorCount} failed`);
         }
-        
+
         // Refresh the album data to show new photos
         fetchAlbum();
       } catch (_error) {
@@ -506,7 +504,7 @@ export default function AlbumContentManager() {
         setUploadingPhotos(false);
       }
     };
-    
+
     input.click();
   };
 
@@ -648,22 +646,13 @@ export default function AlbumContentManager() {
           <div className={`mb-8 ${message ? 'mt-20' : ''}`}>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-slate-100">Photos ({album.metadata.photos.length})</h2>
-              {album.metadata.photos.some(p => !p.width || !p.height || !p.fileSize) && (
-                <button
-                  onClick={handleMigrateMetadata}
-                  disabled={loading}
-                  className="text-sm bg-yellow-600 text-white px-3 py-1 rounded-md hover:bg-yellow-700 disabled:opacity-50"
-                >
-                  Update Missing Metadata
-                </button>
-              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {album.metadata.photos.map((photo) => (
-                <div key={photo.filename} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
+                <div key={photo.id} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
                   <div className="aspect-video bg-slate-600 relative">
                     <Image
-                      src={`/api/thumbnails/${album.albumPath}/${photo.filename}?t=${imageRefreshKey}`}
+                      src={`/api/thumbnails/${photo.id}?t=${imageRefreshKey}`}
                       alt={photo.title}
                       fill
                       className="object-cover"
@@ -675,7 +664,7 @@ export default function AlbumContentManager() {
                       <h3 className="font-semibold text-slate-100">{photo.title}</h3>
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleOpenMoveModal(photo.filename, photo.title)}
+                          onClick={() => handleOpenMoveModal(photo.id, photo.title)}
                           className="text-green-400 hover:text-green-300"
                           title="Move to another album"
                         >
@@ -684,12 +673,12 @@ export default function AlbumContentManager() {
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleRotatePhoto(photo.filename)}
-                          disabled={rotatingPhoto === photo.filename}
+                          onClick={() => handleRotatePhoto(photo.id)}
+                          disabled={rotatingPhoto === photo.id}
                           className="text-blue-400 hover:text-blue-300 disabled:opacity-50"
                           title="Rotate photo clockwise"
                         >
-                          {rotatingPhoto === photo.filename ? (
+                          {rotatingPhoto === photo.id ? (
                             <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -701,12 +690,12 @@ export default function AlbumContentManager() {
                           )}
                         </button>
                         <button
-                          onClick={() => handleDeletePhoto(photo.filename)}
-                          disabled={deletingPhoto === photo.filename}
+                          onClick={() => handleDeletePhoto(photo.id)}
+                          disabled={deletingPhoto === photo.id}
                           className="text-red-400 hover:text-red-300 disabled:opacity-50"
                           title="Delete photo"
                         >
-                          {deletingPhoto === photo.filename ? (
+                          {deletingPhoto === photo.id ? (
                             <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -736,8 +725,8 @@ export default function AlbumContentManager() {
                         )}
                       </p>
                     </div>
-                    
-                    {editingPhoto === photo.filename ? (
+
+                    {editingPhoto === photo.id ? (
                       <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-300">
                           Photo Text
@@ -757,7 +746,7 @@ export default function AlbumContentManager() {
                             Cancel
                           </button>
                           <button
-                            onClick={() => handleSavePhotoText(photo.filename)}
+                            onClick={() => handleSavePhotoText(photo.id)}
                             disabled={loading}
                             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                           >
@@ -775,7 +764,7 @@ export default function AlbumContentManager() {
                           </div>
                         )}
                         <button
-                          onClick={() => handleEditPhotoText(photo.filename, photo.text || '')}
+                          onClick={() => handleEditPhotoText(photo.id, photo.text || '')}
                           className="text-yellow-400 hover:text-yellow-300 text-sm"
                         >
                           {photo.text ? 'Edit Text' : 'Add Text'}
@@ -814,12 +803,12 @@ export default function AlbumContentManager() {
           <div className={`${message ? (album.metadata.photos.length === 0 ? 'mt-20' : '') : ''}`}>
             <h2 className="text-xl font-semibold mb-4 text-slate-100">Videos ({album.metadata.videos.length})</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {album.metadata.videos.map((video, index) => {
+              {album.metadata.videos.map((video) => {
                 const isYouTube = isYouTubeUrl(video.url);
                 const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
-                
+
                 return (
-                  <div key={index} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
+                  <div key={video.id} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
                     {isYouTube && youtubeId ? (
                       <div>
                         <div className="aspect-video">
@@ -833,21 +822,21 @@ export default function AlbumContentManager() {
                         </div>
                         <div className="p-4">
                           <div className="mb-2">
-                            {editingVideoTitle === index ? (
+                            {editingVideoTitle === video.id ? (
                               <div className="flex items-center space-x-2">
                                 <input
                                   type="text"
                                   value={videoTitle}
                                   onChange={(e) => setVideoTitle(e.target.value)}
                                   onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveVideoTitle(index);
+                                    if (e.key === 'Enter') handleSaveVideoTitle(video.id);
                                     if (e.key === 'Escape') handleCancelEditVideoTitle();
                                   }}
                                   className="flex-1 font-semibold bg-slate-600 text-slate-100 px-2 py-1 rounded border border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                   autoFocus
                                 />
                                 <button
-                                  onClick={() => handleSaveVideoTitle(index)}
+                                  onClick={() => handleSaveVideoTitle(video.id)}
                                   disabled={loading}
                                   className="text-green-400 hover:text-green-300 disabled:opacity-50"
                                   title="Save"
@@ -871,7 +860,7 @@ export default function AlbumContentManager() {
                                 <h3 className="font-semibold text-slate-100">{video.title}</h3>
                                 <button
                                   onClick={() => {
-                                    setEditingVideoTitle(index);
+                                    setEditingVideoTitle(video.id);
                                     setVideoTitle(video.title);
                                   }}
                                   className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-300"
@@ -881,13 +870,22 @@ export default function AlbumContentManager() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                   </svg>
                                 </button>
+                                <button
+                                  onClick={() => handleDeleteVideo(video.id)}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300"
+                                  title="Delete video"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
                               </div>
                             )}
                           </div>
                           <p className="text-sm text-slate-400 mb-4">
                             Added: {new Date(video.addedDate).toLocaleDateString()}
                           </p>
-                          {editingVideo === index ? (
+                          {editingVideo === video.id ? (
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-slate-300">
                         Video Text
@@ -907,7 +905,7 @@ export default function AlbumContentManager() {
                           Cancel
                         </button>
                         <button
-                          onClick={() => handleSaveVideoText(index)}
+                          onClick={() => handleSaveVideoText(video.id)}
                           disabled={loading}
                           className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                         >
@@ -925,7 +923,7 @@ export default function AlbumContentManager() {
                         </div>
                       )}
                       <button
-                        onClick={() => handleEditVideoText(index, video.text || '')}
+                        onClick={() => handleEditVideoText(video.id, video.text || '')}
                         className="text-yellow-400 hover:text-yellow-300 text-sm"
                       >
                         {video.text ? 'Edit Text' : 'Add Text'}
@@ -937,21 +935,21 @@ export default function AlbumContentManager() {
                     ) : (
                       <div className="p-4">
                         <div className="mb-2">
-                          {editingVideoTitle === index ? (
+                          {editingVideoTitle === video.id ? (
                             <div className="flex items-center space-x-2">
                               <input
                                 type="text"
                                 value={videoTitle}
                                 onChange={(e) => setVideoTitle(e.target.value)}
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveVideoTitle(index);
+                                  if (e.key === 'Enter') handleSaveVideoTitle(video.id);
                                   if (e.key === 'Escape') handleCancelEditVideoTitle();
                                 }}
                                 className="flex-1 font-semibold bg-slate-600 text-slate-100 px-2 py-1 rounded border border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 autoFocus
                               />
                               <button
-                                onClick={() => handleSaveVideoTitle(index)}
+                                onClick={() => handleSaveVideoTitle(video.id)}
                                 disabled={loading}
                                 className="text-green-400 hover:text-green-300 disabled:opacity-50"
                                 title="Save"
@@ -975,7 +973,7 @@ export default function AlbumContentManager() {
                               <h3 className="font-semibold text-slate-100">{video.title}</h3>
                               <button
                                 onClick={() => {
-                                  setEditingVideoTitle(index);
+                                  setEditingVideoTitle(video.id);
                                   setVideoTitle(video.title);
                                 }}
                                 className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-slate-300"
@@ -983,6 +981,15 @@ export default function AlbumContentManager() {
                               >
                                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleDeleteVideo(video.id)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-red-400 hover:text-red-300"
+                                title="Delete video"
+                              >
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                               </button>
                             </div>
@@ -999,8 +1006,8 @@ export default function AlbumContentManager() {
                         <p className="text-sm text-slate-400 mb-4">
                           Added: {new Date(video.addedDate).toLocaleDateString()}
                         </p>
-                        
-                        {editingVideo === index ? (
+
+                        {editingVideo === video.id ? (
                           <div className="space-y-2">
                             <label className="block text-sm font-medium text-slate-300">
                               Video Text
@@ -1020,7 +1027,7 @@ export default function AlbumContentManager() {
                                 Cancel
                               </button>
                               <button
-                                onClick={() => handleSaveVideoText(index)}
+                                onClick={() => handleSaveVideoText(video.id)}
                                 disabled={loading}
                                 className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                               >
@@ -1038,7 +1045,7 @@ export default function AlbumContentManager() {
                               </div>
                             )}
                             <button
-                              onClick={() => handleEditVideoText(index, video.text || '')}
+                              onClick={() => handleEditVideoText(video.id, video.text || '')}
                               className="text-yellow-400 hover:text-yellow-300 text-sm"
                             >
                               {video.text ? 'Edit Text' : 'Add Text'}
@@ -1067,7 +1074,7 @@ export default function AlbumContentManager() {
               <h2 className="text-xl font-semibold text-slate-100 mb-4">
                 Move Photo: {photoToMove?.title}
               </h2>
-              
+
               <div className="flex-1 overflow-y-auto mb-4">
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Select destination album:
@@ -1076,15 +1083,15 @@ export default function AlbumContentManager() {
                   <div className="space-y-2">
                     {availableAlbums.map((album) => (
                       <label
-                        key={`${album.year}-${album.name}`}
+                        key={`${album.year}-${album.urlName}`}
                         className="flex items-center p-3 border border-slate-600 rounded-md hover:bg-slate-700 cursor-pointer"
                       >
                         <input
                           type="radio"
                           name="targetAlbum"
-                          value={`${album.year}-${album.name}`}
-                          checked={selectedTargetAlbum?.year === album.year && selectedTargetAlbum?.album === album.name}
-                          onChange={() => setSelectedTargetAlbum({ year: album.year, album: album.name })}
+                          value={`${album.year}-${album.urlName}`}
+                          checked={selectedTargetAlbum?.year === album.year && selectedTargetAlbum?.album === album.urlName}
+                          onChange={() => setSelectedTargetAlbum({ year: album.year, album: album.urlName })}
                           className="mr-3 text-blue-500"
                         />
                         <span className="text-slate-200">{album.displayName}</span>
@@ -1097,7 +1104,7 @@ export default function AlbumContentManager() {
                   </div>
                 )}
               </div>
-              
+
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={handleCloseMoveModal}

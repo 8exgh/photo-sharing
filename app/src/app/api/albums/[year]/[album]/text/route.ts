@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { getAlbumMetadata, saveAlbumMetadata } from '@/lib/albums';
-import { getAlbumsWithGroups } from '@/lib/groups';
+import { updateAlbumText } from '@/lib/commands';
+import { queryAlbumByYearAndUrlName } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -25,34 +25,20 @@ export async function PUT(
 
     const { text } = await request.json();
 
-    // First, try to find the album using the group-aware function
-    const albums = await getAlbumsWithGroups(year);
-    const targetAlbum = albums.find(a => a.name === album);
-
-    if (!targetAlbum) {
+    const albumData = queryAlbumByYearAndUrlName(year, album);
+    if (!albumData) {
       log(TAG, 'Album not found', { year, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
 
-    const existingMetadata = await getAlbumMetadata(targetAlbum.path);
-    if (!existingMetadata) {
-      log(TAG, 'Album metadata not found', { year, album });
-      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
-    }
-
-    const updatedMetadata = {
-      ...existingMetadata,
-      text: text || '',
-    };
-
-    await saveAlbumMetadata(targetAlbum.path, updatedMetadata);
+    updateAlbumText(albumData.albumId, text || '');
 
     log(TAG, 'Album text updated successfully', { year, album });
 
     return NextResponse.json({
       success: true,
       message: 'Album text updated successfully',
-      text: updatedMetadata.text,
+      text: text || '',
     });
   } catch (error) {
     logError(TAG, 'Error updating album text', error);

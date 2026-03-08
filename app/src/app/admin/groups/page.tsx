@@ -3,14 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { GroupMetadata } from '@/types';
+interface GroupInfo {
+  id: string;
+  displayName: string;
+  description: string;
+  created: string;
+  albumCount: number;
+  displayOrder: number;
+}
 
 export default function GroupManagement() {
-  const [groups, setGroups] = useState<GroupMetadata[]>([]);
+  const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [years, setYears] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingGroup, setEditingGroup] = useState<GroupMetadata | null>(null);
+  const [editingGroup, setEditingGroup] = useState<GroupInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const router = useRouter();
@@ -106,7 +113,7 @@ export default function GroupManagement() {
     }
   };
 
-  const handleEditGroup = (group: GroupMetadata) => {
+  const handleEditGroup = (group: GroupInfo) => {
     setEditingGroup({ ...group });
   };
 
@@ -123,7 +130,6 @@ export default function GroupManagement() {
         body: JSON.stringify({
           displayName: editingGroup.displayName,
           description: editingGroup.description,
-          nestedAlbums: editingGroup.nestedAlbums,
         }),
       });
 

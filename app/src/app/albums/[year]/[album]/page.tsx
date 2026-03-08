@@ -4,33 +4,59 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { GroupMetadata, AlbumWithGroup } from '@/types';
+
+interface PhotoInfo {
+  id: string;
+  originalFilename: string;
+  title: string;
+  text: string;
+  width: number;
+  height: number;
+  fileSize: number;
+  uploadDate: string;
+}
+
+interface VideoInfo {
+  id: string;
+  url: string;
+  title: string;
+  text: string;
+  addedDate: string;
+}
 
 interface AlbumData {
+  albumId: string;
   metadata: {
     name: string;
     location: string;
     description: string;
     text?: string;
     created: string;
-    photos: Array<{
-      filename: string;
-      title: string;
-      uploadDate: string;
-      description: string;
-      text?: string;
-    }>;
-    videos: Array<{
-      url: string;
-      title: string;
-      addedDate: string;
-      text?: string;
-    }>;
+    photos: PhotoInfo[];
+    videos: VideoInfo[];
   };
-  photos: string[];
-  albumPath: string;
   groupId?: string;
-  isNested?: boolean;
+  firstPhotoId?: string;
+}
+
+interface GroupData {
+  group: {
+    id: string;
+    displayName: string;
+    description: string;
+    albumCount: number;
+  };
+}
+
+interface AlbumWithGroupInfo {
+  albumId: string;
+  name: string;
+  urlName: string;
+  description: string;
+  location: string;
+  firstPhotoId: string | null;
+  groupId: string | null;
+  photoCount: number;
 }
 
 // Helper function to extract YouTube video ID from URL
@@ -39,7 +65,7 @@ function getYouTubeVideoId(url: string): string | null {
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
     /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
   ];
-  
+
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match) {
@@ -57,12 +83,12 @@ function isYouTubeUrl(url: string): boolean {
 export default function AlbumView() {
   const params = useParams();
   const [album, setAlbum] = useState<AlbumData | null>(null);
-  const [groupMetadata, setGroupMetadata] = useState<GroupMetadata | null>(null);
-  const [groupAlbums, setGroupAlbums] = useState<AlbumWithGroup[]>([]);
+  const [groupData, setGroupData] = useState<GroupData | null>(null);
+  const [groupAlbums, setGroupAlbums] = useState<AlbumWithGroupInfo[]>([]);
   const [isGroup, setIsGroup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
   const [selectedPhotoIsFullScreen, setSelectedPhotoIsFullScreen] = useState(false);
 
@@ -72,46 +98,43 @@ export default function AlbumView() {
       const groupResponse = await fetch(`/api/groups/${params.year}/${params.album}`, {
         cache: 'no-store',
       });
-      
+
       if (groupResponse.status === 401) {
-        // Access denied - redirect to access-denied page
         window.location.href = '/access-denied';
         return;
       }
-      
+
       if (groupResponse.ok) {
-        const groupData = await groupResponse.json();
-        setGroupMetadata(groupData.group);
+        const gData = await groupResponse.json();
+        setGroupData(gData);
         setIsGroup(true);
-        
+
         // Fetch albums in this group
         const albumsResponse = await fetch(`/api/albums?year=${params.year}`, {
           cache: 'no-store',
         });
-        
+
         if (albumsResponse.status === 401) {
-          // Access denied - redirect to access-denied page
           window.location.href = '/access-denied';
           return;
         }
-        
+
         const albumsData = await albumsResponse.json();
-        const filteredAlbums = albumsData.albums.filter((album: AlbumWithGroup) => album.groupId === params.album);
+        const filteredAlbums = (albumsData.albums || []).filter((a: AlbumWithGroupInfo) => a.groupId === params.album);
         setGroupAlbums(filteredAlbums);
       } else {
         // Try to fetch as an album
         const albumResponse = await fetch(`/api/albums/${params.year}/${params.album}`, {
           cache: 'no-store',
         });
-        
+
         if (albumResponse.status === 401) {
-          // Access denied - redirect to access-denied page
           window.location.href = '/access-denied';
           return;
         }
-        
+
         const albumData = await albumResponse.json();
-        
+
         if (albumResponse.ok) {
           setAlbum(albumData);
           setIsGroup(false);
@@ -130,27 +153,28 @@ export default function AlbumView() {
     fetchAlbumOrGroup();
   }, [fetchAlbumOrGroup]);
 
-  const openPhotoModal = (photo: string) => {
-    setSelectedPhoto(photo);
+  const openPhotoModal = (photoId: string) => {
+    setSelectedPhotoId(photoId);
   };
 
   const closePhotoModal = () => {
-    setSelectedPhoto(null);
+    setSelectedPhotoId(null);
   };
 
   const navigatePhoto = (direction: 'prev' | 'next') => {
-    if (!album || !selectedPhoto) return;
-    
-    const currentIndex = album.photos.indexOf(selectedPhoto);
+    if (!album || !selectedPhotoId) return;
+
+    const photos = album.metadata.photos;
+    const currentIndex = photos.findIndex(p => p.id === selectedPhotoId);
     let newIndex;
-    
+
     if (direction === 'prev') {
-      newIndex = currentIndex > 0 ? currentIndex - 1 : album.photos.length - 1;
+      newIndex = currentIndex > 0 ? currentIndex - 1 : photos.length - 1;
     } else {
-      newIndex = currentIndex < album.photos.length - 1 ? currentIndex + 1 : 0;
+      newIndex = currentIndex < photos.length - 1 ? currentIndex + 1 : 0;
     }
-    
-    setSelectedPhoto(album.photos[newIndex]);
+
+    setSelectedPhotoId(photos[newIndex].id);
   };
 
   const toggleFullScreenPhoto = () => {
@@ -158,10 +182,6 @@ export default function AlbumView() {
   };
 
   const getBackUrl = () => {
-    // If you want to go back to the group, this is the example
-    // if (album?.groupId) {
-    //   return `/albums/${params.year}/${album.groupId}`;
-    // }
     return `/albums?year=${params.year}`;
   };
 
@@ -176,7 +196,6 @@ export default function AlbumView() {
   if (error || (!album && !isGroup)) {
     return (
       <div className="min-h-screen bg-slate-800">
-        {/* Fixed error banner at top */}
         <div className="fixed top-0 left-0 right-0 z-50 bg-red-900 text-red-100 border-b border-red-700 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center">
@@ -187,8 +206,7 @@ export default function AlbumView() {
             </div>
           </div>
         </div>
-        
-        {/* Page content with top padding to account for fixed banner */}
+
         <div className="pt-20 flex items-center justify-center min-h-screen">
           <div className="text-slate-400 text-center">
             <svg className="h-16 w-16 mx-auto mb-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -202,7 +220,7 @@ export default function AlbumView() {
   }
 
   // Render group view
-  if (isGroup && groupMetadata) {
+  if (isGroup && groupData) {
     return (
       <div className="min-h-screen bg-slate-800 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -213,7 +231,7 @@ export default function AlbumView() {
               <span className="mx-2">&gt;</span>
               <Link href={`/albums?year=${params.year}`} className="hover:text-slate-300">{params.year}</Link>
               <span className="mx-2">&gt;</span>
-              <span className="text-slate-200">{groupMetadata.displayName}</span>
+              <span className="text-slate-200">{groupData.group.displayName}</span>
             </nav>
           </div>
 
@@ -228,12 +246,12 @@ export default function AlbumView() {
               </svg>
               Back to Albums
             </Link>
-            
+
             <h1 className="text-3xl font-bold text-slate-100 mb-2">
-              {groupMetadata.displayName}
+              {groupData.group.displayName}
             </h1>
-            {groupMetadata.description && (
-              <p className="text-slate-300 mb-4">{groupMetadata.description}</p>
+            {groupData.group.description && (
+              <p className="text-slate-300 mb-4">{groupData.group.description}</p>
             )}
             <div className="flex items-center text-sm text-emerald-400">
               <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -248,18 +266,16 @@ export default function AlbumView() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {groupAlbums.map((album) => (
                 <Link
-                  key={album.path}
-                  href={`/albums/${params.year}/${album.name}`}
-                  className={`block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300 ${
-                    album.isNested ? 'ml-8 border-l-4 border-l-blue-500' : ''
-                  }`}
+                  key={album.albumId}
+                  href={`/albums/${params.year}/${album.urlName}`}
+                  className="block bg-slate-700 rounded-lg shadow-md overflow-hidden hover:shadow-lg hover:bg-slate-600 transition-all duration-300"
                 >
                   <div className="h-48 bg-slate-600 relative overflow-hidden flex items-center justify-center">
-                    {album.firstPhoto ? (
+                    {album.firstPhotoId ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
                       <img
-                        src={`/api/thumbnails/${album.path.split('public/albums/')[1]}/${album.firstPhoto}`}
-                        alt={`${album.metadata?.name || album.name} preview`}
+                        src={`/api/thumbnails/${album.firstPhotoId}`}
+                        alt={`${album.name} preview`}
                         className="max-w-full max-h-full object-contain"
                         style={{ display: 'block' }}
                       />
@@ -270,42 +286,37 @@ export default function AlbumView() {
                         </svg>
                       </div>
                     )}
-                    
-                    {/* Overlay for album info on hover - positioned to not interfere with image */}
+
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 opacity-0 hover:opacity-100 transition-opacity duration-300">
                       <p className="text-sm font-medium text-white truncate">
-                        {album.metadata?.photos?.length || 0} photos
+                        {album.photoCount || 0} photos
                       </p>
                     </div>
                   </div>
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-slate-100 mb-2">
-                      {album.metadata?.name || album.name}
-                      {album.isNested && <span className="ml-2 text-blue-400 text-sm">(nested)</span>}
+                      {album.name}
                     </h3>
-                    {album.metadata?.location && (
+                    {album.location && (
                       <p className="text-sm text-slate-300 mb-1">
                         📍{' '}
                         <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(album.metadata.location)}`}
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(album.location)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="hover:text-blue-400 hover:underline transition-colors"
                           onClick={(e) => e.stopPropagation()}
                           title="Open in Google Maps"
                         >
-                          {album.metadata.location}
+                          {album.location}
                         </a>
                       </p>
                     )}
-                    {album.metadata?.description && (
+                    {album.description && (
                       <p className="text-sm text-slate-300 mb-2">
-                        {album.metadata.description}
+                        {album.description}
                       </p>
                     )}
-                    {!true &&  (<p className="text-xs text-slate-400">
-                      Created: {album.metadata?.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-                    </p>) }
                   </div>
                 </Link>
               ))}
@@ -320,6 +331,10 @@ export default function AlbumView() {
     );
   }
 
+  // Get current selected photo info
+  const selectedPhoto = album?.metadata.photos.find(p => p.id === selectedPhotoId);
+  const selectedPhotoIndex = album?.metadata.photos.findIndex(p => p.id === selectedPhotoId) ?? -1;
+
   return (
     <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -331,13 +346,13 @@ export default function AlbumView() {
             <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {album?.groupId ? 'Back to Albums' : 'Back to Albums'}
+            Back to Albums
           </Link>
-          
+
           <h1 className="text-3xl font-bold text-slate-100 mb-2">
             {album?.metadata.name}
           </h1>
-          
+
           {album?.metadata.location && (
             <p className="text-slate-300 mb-2">
               📍{' '}
@@ -352,14 +367,10 @@ export default function AlbumView() {
               </a>
             </p>
           )}
-          
+
           {album?.metadata.description && (
             <p className="text-slate-300 mb-4">{album.metadata.description}</p>
           )}
-
-          {!true && (<p className="text-sm text-slate-400">
-            Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}
-          </p>)}
         </div>
 
         {/* Two-column layout */}
@@ -368,16 +379,16 @@ export default function AlbumView() {
           <div className="lg:col-span-2">
 
         {/* Photos Grid */}
-        {album && album.photos.length > 0 ? (
+        {album && album.metadata.photos.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-            {album.photos.map((photo, index) => (
+            {album.metadata.photos.map((photo, index) => (
               <div
-                key={photo}
+                key={photo.id}
                 className="relative aspect-square bg-slate-600 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg hover:bg-slate-500 transition-all duration-300"
-                onClick={() => openPhotoModal(photo)}
+                onClick={() => openPhotoModal(photo.id)}
               >
                 <Image
-                  src={`/api/thumbnails/${album.albumPath}/${photo}`}
+                  src={`/api/thumbnails/${photo.id}`}
                   alt={`Photo ${index + 1}`}
                   fill
                   unoptimized
@@ -401,10 +412,10 @@ export default function AlbumView() {
               {album.metadata.videos.map((video, index) => {
                 const isYouTube = isYouTubeUrl(video.url);
                 const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
-                
+
                 return (
-                  <div 
-                    key={index} 
+                  <div
+                    key={video.id}
                     className="bg-slate-700 rounded-lg shadow-md overflow-hidden"
                   >
                     {isYouTube && youtubeId ? (
@@ -420,11 +431,8 @@ export default function AlbumView() {
                         </div>
                         <div className="p-4">
                           <h3 className="font-semibold text-slate-100">{video.title}</h3>
-                          {!true && (<p className="text-sm text-slate-400 mt-1">
-                            Added: {new Date(video.addedDate).toLocaleDateString()}
-                          </p>)}
                           {video.text && (
-                            <div 
+                            <div
                               className="mt-2 cursor-pointer text-blue-400 hover:text-blue-300 text-sm"
                               onClick={() => setSelectedVideo(index)}
                             >
@@ -434,7 +442,7 @@ export default function AlbumView() {
                         </div>
                       </div>
                     ) : (
-                      <div 
+                      <div
                         className="p-4 cursor-pointer hover:bg-slate-600 transition-colors"
                         onClick={() => setSelectedVideo(index)}
                       >
@@ -448,9 +456,6 @@ export default function AlbumView() {
                         >
                           Watch Video →
                         </a>
-                        {!true &&  (<p className="text-sm text-slate-400 mt-2">
-                          Added: {new Date(video.addedDate).toLocaleDateString()}
-                        </p>)}
                       </div>
                     )}
                   </div>
@@ -461,14 +466,14 @@ export default function AlbumView() {
         )}
 
         {/* Photo Modal */}
-        {selectedPhoto && album && (
+        {selectedPhotoId && album && selectedPhoto && (
           <div className="fixed m-0 p-0 gap-0 inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 ">
             <div className="relative m-0 p-0 w-full h-full max-h-full flex flex-col lg:flex-row gap-0">
 
-              {/* Photo Container - needs position relative for fill */}
+              {/* Photo Container */}
               <div className="flex-1 m-0 p-0 flex items-center justify-center min-h-0 min-w-0 relative">
                 <Image
-                    src={`/api/images/${album.albumPath}/${selectedPhoto}`}
+                    src={`/api/images/${selectedPhotoId}`}
                     alt="Full size photo"
                     fill
                     unoptimized
@@ -492,9 +497,7 @@ export default function AlbumView() {
                   </svg>
                 </button>)}
 
-
               </div>
-
 
               {(!selectedPhotoIsFullScreen &&  <div className="lg:w-80 lg:max-w-sm bg-white rounded-lg p-6 overflow-y-auto lg:max-h-full max-h-48">
                   <div className="bg-slate-800 rounded-lg p-4 flex-1 min-h-0">
@@ -511,7 +514,7 @@ export default function AlbumView() {
                       </button>
 
                       <div className="text-white text-center">
-                        {album.photos.indexOf(selectedPhoto) + 1} of {album.photos.length}
+                        {selectedPhotoIndex + 1} of {album.metadata.photos.length}
                       </div>
 
                       <button
@@ -523,38 +526,21 @@ export default function AlbumView() {
                         </svg>
                       </button>
                     </div>
-                    {/****end nav controls*/}
-
 
                     <h3 className="text-lg font-semibold text-white mb-2 mt-2">
-                      {(() => {
-                        const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
-                        return photo?.text; // If you want the photo name to default when not title, uncomment:  || selectedPhoto;
-                      })()}
+                      {selectedPhoto.text}
                     </h3>
 
-
-
-                    {!true && (<div className="text-sm text-slate-400 mb-4">
-                      {(() => {
-                        const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
-                        return photo?.uploadDate ? new Date(photo.uploadDate).toLocaleDateString() : '';
-                      })()}
-                    </div>)}
-
                     <div className="flex-1 overflow-y-auto">
-                      {(() => {
-                        const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
-                        return photo?.text ? (
-                          <div>
-                            <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
-                              {photo.text}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-slate-400 italic">No description available</p>
-                        );
-                      })()}
+                      {selectedPhoto.text ? (
+                        <div>
+                          <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
+                            {selectedPhoto.text}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 italic">No description available</p>
+                      )}
                     </div>
                   </div>
 
@@ -563,7 +549,7 @@ export default function AlbumView() {
             </div>
           </div>
         )}
-        
+
         {/* Video Modal */}
         {selectedVideo !== null && album && album.metadata.videos[selectedVideo] && (
           <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
@@ -576,13 +562,13 @@ export default function AlbumView() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              
+
               <div className="bg-slate-800 rounded-lg overflow-hidden">
                 {(() => {
                   const video = album.metadata.videos[selectedVideo];
                   const isYouTube = isYouTubeUrl(video.url);
                   const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
-                  
+
                   return (
                     <div>
                       {isYouTube && youtubeId ? (
@@ -608,12 +594,9 @@ export default function AlbumView() {
                           </a>
                         </div>
                       )}
-                      
+
                       <div className="p-6">
                         <h2 className="text-xl font-bold text-slate-100 mb-2">{video.title}</h2>
-                        {!true && (<p className="text-sm text-slate-400 mb-4">
-                          Added: {new Date(video.addedDate).toLocaleDateString()}
-                        </p>)}
                         {video.text && (
                           <div className="p-4 bg-slate-700 rounded-lg">
                             <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
@@ -635,7 +618,6 @@ export default function AlbumView() {
           <div className="lg:col-span-1">
             <div className="bg-slate-700 rounded-lg p-6 sticky top-8">
 
-              
               {/* Album Text */}
               {album?.metadata.text && (
                 <div className="mb-6">
@@ -646,29 +628,26 @@ export default function AlbumView() {
                   </div>
                 </div>
               )}
-              
+
               {/* Selected Photo Text */}
-              {selectedPhoto && album && (
+              {selectedPhotoId && album && selectedPhoto && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium text-slate-200 mb-2">Photo Details</h3>
                   <div className="p-4 bg-slate-800 rounded-lg">
                     <p className="text-slate-400 text-sm mb-2">
-                      {selectedPhoto}
+                      {selectedPhoto.title}
                     </p>
-                    {(() => {
-                      const photo = album.metadata.photos.find(p => p.filename === selectedPhoto);
-                      return photo?.text ? (
-                        <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
-                          {photo.text}
-                        </p>
-                      ) : (
-                        <p className="text-slate-400 italic">No description available</p>
-                      );
-                    })()}
+                    {selectedPhoto.text ? (
+                      <p className="text-slate-300 whitespace-pre-wrap leading-relaxed">
+                        {selectedPhoto.text}
+                      </p>
+                    ) : (
+                      <p className="text-slate-400 italic">No description available</p>
+                    )}
                   </div>
                 </div>
               )}
-              
+
               {/* Selected Video Text */}
               {selectedVideo !== null && album && (
                 <div className="mb-6">
@@ -687,13 +666,6 @@ export default function AlbumView() {
                   </div>
                 </div>
               )}
-              
-              {/* Album Stats */}
-              {!true && (<div  className="text-sm text-slate-400 space-y-1">
-                <p>{album?.photos.length || 0} photos</p>
-                <p>{album?.metadata.videos.length || 0} videos</p>
-                <p>Created: {album?.metadata.created ? new Date(album.metadata.created).toLocaleDateString() : 'Unknown'}</p>
-              </div>)}
             </div>
           </div>
         </div>

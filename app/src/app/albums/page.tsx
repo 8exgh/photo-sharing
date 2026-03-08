@@ -2,20 +2,43 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
-import { GroupMetadata, AlbumWithGroup } from '@/types';
 import {useSessionState} from "@/app/hooks/sessionState";
 
+interface AlbumInfo {
+  albumId: string;
+  name: string;
+  urlName: string;
+  description: string;
+  groupId: string | null;
+}
+
+interface GroupInfo {
+  id: string;
+  displayName: string;
+  description: string;
+  albumCount: number;
+}
+
+interface UnifiedItem {
+  type: 'group' | 'album';
+  id: string;
+  displayOrder: number;
+  group?: GroupInfo;
+  album?: AlbumInfo;
+  albumsInGroup?: AlbumInfo[];
+}
+
 // Component for individual album item
-function AlbumItem({ album, year }: { album: AlbumWithGroup; year: string }) {
+function AlbumItem({ album, year }: { album: AlbumInfo; year: string }) {
   return (
     <Link
-      href={`/albums/${year}/${album.name}`}
+      href={`/albums/${year}/${album.urlName}`}
       className="block py-2 pl-12 pr-4 hover:bg-slate-700 rounded transition-colors"
     >
-      <div className="text-slate-100">{album.metadata?.name || album.name}</div>
-      {album.metadata?.description && (
+      <div className="text-slate-100">{album.name}</div>
+      {album.description && (
         <div className="text-sm text-slate-400 mt-1 whitespace-pre-wrap">
-          {album.metadata.description}
+          {album.description}
         </div>
       )}
     </Link>
@@ -23,21 +46,19 @@ function AlbumItem({ album, year }: { album: AlbumWithGroup; year: string }) {
 }
 
 // Component for group section with expand/collapse
-function GroupSection({ 
-  group, 
-  albums, 
+function GroupSection({
+  group,
+  albums,
   year,
   isExpanded,
-  onToggle 
-}: { 
-  group: GroupMetadata; 
-  albums: AlbumWithGroup[];
+  onToggle
+}: {
+  group: GroupInfo;
+  albums: AlbumInfo[];
   year: string;
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const groupAlbums = albums.filter(album => album.groupId === group.id);
-  
   return (
     <div>
       <button
@@ -49,13 +70,13 @@ function GroupSection({
         </span>
         <span className="text-slate-200">{group.displayName}</span>
       </button>
-      
+
       {isExpanded && (
         <div className="ml-4">
-          {groupAlbums.map((album) => (
-            <AlbumItem key={album.path} album={album} year={year} />
+          {albums.map((album) => (
+            <AlbumItem key={album.albumId} album={album} year={year} />
           ))}
-          {groupAlbums.length === 0 && (
+          {albums.length === 0 && (
             <div className="pl-12 py-2 text-slate-500 italic">No albums in this group</div>
           )}
         </div>
@@ -65,15 +86,6 @@ function GroupSection({
 }
 
 // Component for year section with expand/collapse
-interface UnifiedItem {
-  type: 'group' | 'album';
-  id: string;
-  displayOrder?: number;
-  group?: GroupMetadata;
-  album?: AlbumWithGroup;
-  albumsInGroup?: AlbumWithGroup[];
-}
-
 function YearSection({
   year,
   isExpanded,
@@ -83,37 +95,28 @@ function YearSection({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const [albums, setAlbums] = useState<AlbumWithGroup[]>([]);
   const [unifiedItems, setUnifiedItems] = useState<UnifiedItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useSessionState<Set<string>>(`albums-year-${year}-group-expanded`, new Set());
 
   const fetchYearData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch albums
-      const albumsResponse = await fetch(`/api/albums?year=${year}`, {
-        cache: 'no-store',
-      });
-
-      if (albumsResponse.status === 401) {
-        window.location.href = '/access-denied';
-        return;
-      }
-
-      if (albumsResponse.ok) {
-        const albumsData = await albumsResponse.json();
-        setAlbums(albumsData.albums || []);
-      }
-
       // Fetch unified items to get groups and albums in correct order
       const itemsResponse = await fetch(`/api/items?year=${year}`, {
         cache: 'no-store',
       });
 
+      if (itemsResponse.status === 401) {
+        window.location.href = '/access-denied';
+        return;
+      }
+
       if (itemsResponse.ok) {
         const itemsData = await itemsResponse.json();
         setUnifiedItems(itemsData.items || []);
+        setLoaded(true);
       }
     } catch (error) {
       console.error('Error fetching year data:', error);
@@ -123,10 +126,10 @@ function YearSection({
   }, [year]);
 
   useEffect(() => {
-    if (isExpanded && albums.length === 0) {
+    if (isExpanded && !loaded) {
       fetchYearData();
     }
-  }, [isExpanded, albums.length, fetchYearData]);
+  }, [isExpanded, loaded, fetchYearData]);
 
   const toggleGroup = (groupId: string) => {
     setExpandedGroups(prev => {
@@ -152,7 +155,7 @@ function YearSection({
         </span>
         <span className="text-slate-100 font-medium">{year}</span>
       </button>
-      
+
       {isExpanded && (
         <div className="ml-4">
           {loading ? (
@@ -205,17 +208,17 @@ function AlbumsContent() {
       const response = await fetch('/api/albums', {
         cache: 'no-store',
       });
-      
+
       if (response.status === 401) {
         window.location.href = '/access-denied';
         return;
       }
-      
+
       const data = await response.json();
       // Sort years in descending order (newest first)
       const sortedYears = (data.years || []).sort((a: string, b: string) => b.localeCompare(a));
       setYears(sortedYears);
-      
+
       // Optionally expand the current year by default
       if (sortedYears.length > 0) {
         const currentYear = new Date().getFullYear().toString();

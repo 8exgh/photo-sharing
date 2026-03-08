@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { getUnifiedYearItems } from '@/lib/groups';
-import { isValidAccessKey } from '@/lib/access-keys';
+import { queryUnifiedYearItems, queryIsValidAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -21,14 +20,12 @@ export async function GET(request: NextRequest) {
 
     // Validate access key for non-admin sessions
     if (!session.isAdmin && session.accessKey) {
-      const keyIsValid = await isValidAccessKey(session.accessKey);
+      const keyIsValid = queryIsValidAccessKey(session.accessKey);
       if (!keyIsValid) {
         log(TAG, 'Access key no longer valid');
-        // Clear invalid session
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
-        // Return with session cookie headers
         return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
@@ -44,7 +41,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Year parameter is required' }, { status: 400 });
     }
 
-    const items = await getUnifiedYearItems(year);
+    const items = queryUnifiedYearItems(year);
     log(TAG, 'Items fetched', { year, count: items.length });
 
     return NextResponse.json(
