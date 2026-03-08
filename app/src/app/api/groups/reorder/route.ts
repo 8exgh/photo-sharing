@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { getGroupsByYear, getGroupMetadata, saveGroupMetadata } from '@/lib/groups';
-import { join } from 'path';
+import { reorderGroup } from '@/lib/commands';
+import { queryGroupsByYear } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
-
-const ALBUMS_DIR = join(process.cwd(), process.env.ALBUMS_DIR || 'public/albums');
 
 export async function POST(request: NextRequest) {
   const TAG = 'POST /api/groups/reorder';
@@ -30,10 +28,7 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Reordering group', { year, groupId, direction });
 
-    // Get all groups for the year
-    const groups = await getGroupsByYear(year);
-
-    // Find current group index
+    const groups = queryGroupsByYear(year);
     const currentIndex = groups.findIndex(g => g.id === groupId);
 
     if (currentIndex === -1) {
@@ -41,7 +36,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
-    // Check if move is valid
     const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
     if (newIndex < 0 || newIndex >= groups.length) {
@@ -49,22 +43,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Cannot move group in that direction' }, { status: 400 });
     }
 
-    // Create a copy and swap the groups
-    const reorderedGroups = [...groups];
-    const temp = reorderedGroups[currentIndex];
-    reorderedGroups[currentIndex] = reorderedGroups[newIndex];
-    reorderedGroups[newIndex] = temp;
+    // Swap and reassign orders
+    const reordered = [...groups];
+    const temp = reordered[currentIndex];
+    reordered[currentIndex] = reordered[newIndex];
+    reordered[newIndex] = temp;
 
-    // Update displayOrder for all groups
-    for (let i = 0; i < reorderedGroups.length; i++) {
-      const group = reorderedGroups[i];
-      const groupPath = join(ALBUMS_DIR, year, group.id);
-      const metadata = await getGroupMetadata(groupPath);
-
-      if (metadata) {
-        metadata.displayOrder = i;
-        await saveGroupMetadata(groupPath, metadata);
-      }
+    for (let i = 0; i < reordered.length; i++) {
+      reorderGroup(reordered[i].id, i);
     }
 
     log(TAG, 'Group reordered successfully', { groupId, direction });

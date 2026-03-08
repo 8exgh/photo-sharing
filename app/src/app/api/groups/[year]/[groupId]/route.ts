@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGroupMetadata, saveGroupMetadata, deleteGroup } from '@/lib/groups';
-import { join } from 'path';
 import { validateSession } from '@/lib/session';
-import { isValidAccessKey } from '@/lib/access-keys';
+import { updateGroup, deleteGroup } from '@/lib/commands';
+import { queryGroupByYearAndId, queryIsValidAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
-
-const ALBUMS_DIR = join(process.cwd(), 'public', 'albums');
 
 export async function GET(
   request: NextRequest,
@@ -18,7 +15,6 @@ export async function GET(
 
     const sessionData = await validateSession(request);
 
-    // Allow both admin users and users with valid access keys to view groups
     if (!sessionData.isAuthenticated) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,23 +22,22 @@ export async function GET(
 
     // For non-admin users, validate their access key
     if (!sessionData.isAdmin && sessionData.accessKey) {
-      const keyIsValid = await isValidAccessKey(sessionData.accessKey);
+      const keyIsValid = queryIsValidAccessKey(sessionData.accessKey);
       if (!keyIsValid) {
         log(TAG, 'Access key no longer valid');
         return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
       }
     }
 
-    const groupPath = join(ALBUMS_DIR, year, groupId);
-    const metadata = await getGroupMetadata(groupPath);
+    const group = queryGroupByYearAndId(year, groupId);
 
-    if (!metadata) {
+    if (!group) {
       log(TAG, 'Group not found', { year, groupId });
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
     log(TAG, 'Group fetched', { year, groupId });
-    return NextResponse.json({ group: metadata });
+    return NextResponse.json({ group });
   } catch (error) {
     logError(TAG, 'Error fetching group', error);
     return NextResponse.json({ error: 'Failed to fetch group' }, { status: 500 });
@@ -64,26 +59,18 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { displayName, description, nestedAlbums } = await request.json();
+    const { displayName, description } = await request.json();
 
-    const groupPath = join(ALBUMS_DIR, year, groupId);
-    const existingMetadata = await getGroupMetadata(groupPath);
+    const updated = updateGroup(groupId, { displayName, description });
 
-    if (!existingMetadata) {
+    if (!updated) {
       log(TAG, 'Group not found', { year, groupId });
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
-    const updatedMetadata = {
-      ...existingMetadata,
-      displayName: displayName || existingMetadata.displayName,
-      description: description !== undefined ? description : existingMetadata.description,
-      nestedAlbums: nestedAlbums !== undefined ? nestedAlbums : existingMetadata.nestedAlbums,
-    };
-
-    await saveGroupMetadata(groupPath, updatedMetadata);
+    const group = queryGroupByYearAndId(year, groupId);
     log(TAG, 'Group updated', { year, groupId });
-    return NextResponse.json({ group: updatedMetadata });
+    return NextResponse.json({ group });
   } catch (error) {
     logError(TAG, 'Error updating group', error);
     return NextResponse.json({ error: 'Failed to update group' }, { status: 500 });
@@ -106,7 +93,7 @@ export async function DELETE(
     }
 
     log(TAG, 'Deleting group', { year, groupId });
-    const deleted = await deleteGroup(year, groupId);
+    const deleted = deleteGroup(groupId);
 
     if (!deleted) {
       log(TAG, 'Group not found', { year, groupId });

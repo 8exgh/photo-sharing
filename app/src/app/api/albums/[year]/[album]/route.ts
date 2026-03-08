@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { getAlbumMetadata, saveAlbumMetadata, getAlbumPhotos, moveAlbumToYear, renameAlbumFolder } from '@/lib/albums';
-import { getAlbumsWithGroups } from '@/lib/groups';
-import { AlbumMetadata } from '@/types';
-import { isValidAccessKey } from '@/lib/access-keys';
+import { updateAlbumMetadata, renameAlbumUrl, changeAlbumYear } from '@/lib/commands';
+import { queryAlbumByYearAndUrlName, queryIsValidAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -27,7 +25,7 @@ export async function GET(
 
     // Validate access key for non-admin sessions
     if (!session.isAdmin && session.accessKey) {
-      const keyIsValid = await isValidAccessKey(session.accessKey);
+      const keyIsValid = queryIsValidAccessKey(session.accessKey);
       if (!keyIsValid) {
         log(TAG, 'Access key invalid, clearing session');
         session.isAuthenticated = false;
@@ -40,32 +38,30 @@ export async function GET(
       }
     }
 
-    // Find the album using the group-aware function
-    const albums = await getAlbumsWithGroups(year);
-    const targetAlbum = albums.find(a => a.name === album);
+    const albumData = queryAlbumByYearAndUrlName(year, album);
 
-    if (!targetAlbum) {
+    if (!albumData) {
       log(TAG, 'Album not found', { year, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
 
-    const metadata = await getAlbumMetadata(targetAlbum.path);
-    const photos = await getAlbumPhotos(targetAlbum.path);
-
-    if (!metadata) {
-      log(TAG, 'Album metadata not found', { year, album });
-      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
-    }
-
-    log(TAG, 'Album fetched', { year, album, photoCount: photos.length });
+    log(TAG, 'Album fetched', { year, album, photoCount: albumData.photoCount });
 
     return NextResponse.json(
       {
-        metadata,
-        photos,
-        albumPath: targetAlbum.path.split('public/albums/')[1],
-        groupId: targetAlbum.groupId,
-        isNested: targetAlbum.isNested,
+        albumId: albumData.albumId,
+        metadata: {
+          name: albumData.name,
+          location: albumData.location,
+          description: albumData.description,
+          text: albumData.text,
+          created: albumData.created,
+          displayOrder: albumData.displayOrder,
+          photos: albumData.photos,
+          videos: albumData.videos,
+        },
+        groupId: albumData.groupId,
+        firstPhotoId: albumData.firstPhotoId,
       },
       {
         headers: {
@@ -100,71 +96,54 @@ export async function PUT(
 
     const { name, location, description, text, year: newYear, urlName } = await request.json();
 
-    // Find the album using the group-aware function
-    const albums = await getAlbumsWithGroups(currentYear);
-    const targetAlbum = albums.find(a => a.name === album);
-
-    if (!targetAlbum) {
+    const albumData = queryAlbumByYearAndUrlName(currentYear, album);
+    if (!albumData) {
       log(TAG, 'Album not found', { currentYear, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
 
-    const existingMetadata = await getAlbumMetadata(targetAlbum.path);
-    if (!existingMetadata) {
-      log(TAG, 'Album metadata not found', { currentYear, album });
-      return NextResponse.json({ error: 'Album not found' }, { status: 404 });
-    }
-
-    let finalPath = targetAlbum.path;
+    const albumId = albumData.albumId;
     let yearChanged = false;
     let urlNameChanged = false;
 
-    // Check if URL name needs to be changed (do this BEFORE year change)
+    // Update metadata
+    updateAlbumMetadata(albumId, {
+      name: name || undefined,
+      location: location !== undefined ? location : undefined,
+      description: description !== undefined ? description : undefined,
+    });
+
+    // Update text if provided
+    if (text !== undefined) {
+      const { updateAlbumText } = await import('@/lib/commands');
+      updateAlbumText(albumId, text);
+    }
+
+    // Rename URL if changed
     if (urlName && urlName !== album) {
       try {
-        log(TAG, 'Renaming album folder', { from: album, to: urlName });
-        finalPath = await renameAlbumFolder(finalPath, album, urlName);
+        renameAlbumUrl(albumId, urlName);
         urlNameChanged = true;
-      } catch (_error) {
-        log(TAG, 'Failed to rename album folder', { error: _error instanceof Error ? _error.message : String(_error) });
+      } catch (err) {
         return NextResponse.json({
-          error: _error instanceof Error ? _error.message : 'Failed to rename album folder'
+          error: err instanceof Error ? err.message : 'Failed to rename album'
         }, { status: 400 });
       }
     }
 
-    // Check if year needs to be changed (do this AFTER renaming)
+    // Change year if changed
     if (newYear && newYear !== currentYear) {
       try {
-        log(TAG, 'Moving album to new year', { from: currentYear, to: newYear });
-        // Use the new name if it was changed, otherwise use the original
-        const albumNameForMove = urlNameChanged ? urlName : album;
-        finalPath = await moveAlbumToYear(
-          finalPath,
-          newYear,
-          albumNameForMove,
-          targetAlbum.groupId
-        );
+        changeAlbumYear(albumId, newYear);
         yearChanged = true;
-      } catch (_error) {
-        log(TAG, 'Failed to move album to new year', { error: _error instanceof Error ? _error.message : String(_error) });
+      } catch (err) {
         return NextResponse.json({
-          error: _error instanceof Error ? _error.message : 'Failed to move album to new year'
+          error: err instanceof Error ? err.message : 'Failed to change year'
         }, { status: 400 });
       }
     }
 
-    const updatedMetadata: AlbumMetadata = {
-      ...existingMetadata,
-      name: name || existingMetadata.name,
-      location: location !== undefined ? location : existingMetadata.location,
-      description: description !== undefined ? description : existingMetadata.description,
-      text: text !== undefined ? text : existingMetadata.text,
-    };
-
-    await saveAlbumMetadata(finalPath, updatedMetadata);
-
-    log(TAG, 'Album updated successfully', { album, yearChanged, urlNameChanged, newYear, newUrlName: urlName });
+    log(TAG, 'Album updated successfully', { album, yearChanged, urlNameChanged });
 
     return NextResponse.json({
       success: true,
@@ -175,7 +154,6 @@ export async function PUT(
         : urlNameChanged
         ? `Album updated and renamed successfully!`
         : 'Album updated successfully',
-      metadata: updatedMetadata,
       yearChanged,
       urlNameChanged,
       newYear: yearChanged ? newYear : currentYear,

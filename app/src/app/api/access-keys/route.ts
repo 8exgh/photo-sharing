@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { createAccessKey, getAccessKeys, deleteAccessKey } from '@/lib/access-keys';
+import { createAccessKey, revokeAccessKey } from '@/lib/commands';
+import { queryAllAccessKeys } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const keys = await getAccessKeys();
+    const keys = queryAllAccessKeys();
     log(TAG, 'Access keys fetched', { count: keys.length });
 
     return NextResponse.json({ keys });
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     const { expires } = body;
     log(TAG, 'Creating access key', { expires });
 
-    const key = await createAccessKey(expires);
+    const key = createAccessKey(expires);
     log(TAG, 'Access key created', { keyPrefix: key.substring(0, 8) + '...' });
 
     return NextResponse.json({ key });
@@ -80,7 +81,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     log(TAG, 'Deleting access key', { keyPrefix: key.substring(0, 8) + '...' });
-    const deleted = await deleteAccessKey(key);
+    const deleted = revokeAccessKey(key);
 
     if (!deleted) {
       log(TAG, 'Key not found');

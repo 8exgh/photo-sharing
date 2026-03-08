@@ -1,0 +1,70 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getSessionFromRequest } from '@/lib/session';
+import { queryIsValidAccessKey } from '@/lib/queries';
+import { promises as fs } from 'fs';
+import { join } from 'path';
+import { logRequest, log, logError } from '@/lib/logger';
+
+export const runtime = 'nodejs';
+
+const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ photoId: string }> }
+) {
+  const TAG = 'GET /api/thumbnails/[photoId]';
+  try {
+    const { photoId } = await params;
+    logRequest(TAG, request, { msg: 'Thumbnail request', photoId });
+
+    const response = new NextResponse();
+    const session = await getSessionFromRequest(request, response);
+
+    if (!session.isAuthenticated) {
+      log(TAG, 'Unauthorized');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Validate access key for non-admin sessions
+    if (!session.isAdmin && session.accessKey) {
+      const keyIsValid = queryIsValidAccessKey(session.accessKey);
+      if (!keyIsValid) {
+        log(TAG, 'Access key no longer valid');
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+      }
+    }
+
+    // Validate UUID format
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(photoId)) {
+      log(TAG, 'Invalid photoId format', { photoId });
+      return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });
+    }
+
+    const thumbnailPath = join(DATA_DIR, 'thumbnails', `${photoId}.jpg`);
+
+    try {
+      const imageBuffer = await fs.readFile(thumbnailPath);
+
+      log(TAG, 'Serving thumbnail', { photoId, size: imageBuffer.length });
+
+      return new NextResponse(imageBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': 'image/jpeg',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+          'Content-Length': imageBuffer.length.toString(),
+        },
+      });
+    } catch {
+      log(TAG, 'Thumbnail not found', { photoId });
+      return NextResponse.json({ error: 'Thumbnail not found' }, { status: 404 });
+    }
+  } catch (error) {
+    logError(TAG, 'Thumbnail serving error', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}

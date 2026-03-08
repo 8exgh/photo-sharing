@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGroupsByYear, createGroup } from '@/lib/groups';
 import { validateSession } from '@/lib/session';
-import { isValidAccessKey } from '@/lib/access-keys';
+import { createGroup } from '@/lib/commands';
+import { queryGroupsByYear, queryIsValidAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
 
   const sessionData = await validateSession(request);
 
-  // Allow both admin users and users with valid access keys to view groups
   if (!sessionData.isAuthenticated) {
     log(TAG, 'Unauthorized');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -18,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   // For non-admin users, validate their access key
   if (!sessionData.isAdmin && sessionData.accessKey) {
-    const keyIsValid = await isValidAccessKey(sessionData.accessKey);
+    const keyIsValid = queryIsValidAccessKey(sessionData.accessKey);
     if (!keyIsValid) {
       log(TAG, 'Access key no longer valid');
       return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const groups = await getGroupsByYear(year);
+    const groups = queryGroupsByYear(year);
     log(TAG, 'Groups fetched', { year, count: groups.length });
     return NextResponse.json(
       { groups },
@@ -73,7 +72,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const group = await createGroup(year, groupName, displayName, description || '');
+    const { groupId } = createGroup({ year, groupName, displayName, description: description || '' });
+    const groups = queryGroupsByYear(year);
+    const group = groups.find(g => g.id === groupId);
+
     log(TAG, 'Group created', { year, groupName, displayName });
     return NextResponse.json({ group });
   } catch (error) {

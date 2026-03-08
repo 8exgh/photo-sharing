@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { createAlbumDirectory, saveAlbumMetadata, getAllYears } from '@/lib/albums';
-import { getAlbumsWithGroups, moveAlbumToGroup } from '@/lib/groups';
-import { AlbumMetadata } from '@/types';
-import { isValidAccessKey } from '@/lib/access-keys';
+import { createAlbum } from '@/lib/commands';
+import { queryAllYears, queryAlbumsWithGroupsByYear, queryIsValidAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -13,7 +11,6 @@ export async function OPTIONS(request: NextRequest) {
   const TAG = 'OPTIONS /api/albums';
   const response = new NextResponse(null, { status: 200 });
 
-  // Set CORS headers for preflight
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
@@ -45,14 +42,13 @@ export async function GET(request: NextRequest) {
     // Validate access key for non-admin sessions
     if (!session.isAdmin && session.accessKey) {
       log(TAG, 'Validating access key for non-admin session');
-      const keyIsValid = await isValidAccessKey(session.accessKey);
+      const keyIsValid = queryIsValidAccessKey(session.accessKey);
 
       if (!keyIsValid) {
         log(TAG, 'Access key invalid, clearing session');
         session.isAuthenticated = false;
         session.accessKey = undefined;
         await session.save();
-        // Return the response that has the session cookie cleared
         return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
@@ -64,7 +60,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
 
     if (year) {
-      const albums = await getAlbumsWithGroups(year);
+      const albums = queryAlbumsWithGroupsByYear(year);
       log(TAG, 'Fetched albums for year', { year, count: albums.length });
       return NextResponse.json(
         { albums },
@@ -77,7 +73,7 @@ export async function GET(request: NextRequest) {
         }
       );
     } else {
-      const years = await getAllYears();
+      const years = queryAllYears();
       log(TAG, 'Fetched all years', { count: years.length });
       return NextResponse.json(
         { years },
@@ -119,66 +115,22 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Authorization successful, parsing request body');
     const { name, year, location, description, groupId, datePrefix } = await request.json();
-    
+
     if (!name || !year) {
       return NextResponse.json({ error: 'Name and year are required' }, { status: 400 });
     }
-    
-    // Create album name with optional date prefix
-    const albumName = datePrefix ? `${datePrefix}-${name}` : name;
-    
-    let albumPath = await createAlbumDirectory(year, albumName);
-    
-    // Move to group if specified
-    if (groupId) {
-      albumPath = await moveAlbumToGroup(albumPath, year, groupId);
-    }
 
-    // Determine displayOrder based on context
-    let displayOrder = 0;
+    const { albumId, urlName } = createAlbum({ name, year, location, description, groupId, datePrefix });
 
-    if (groupId) {
-      // For albums in groups, use group-specific ordering
-      const existingAlbums = await getAlbumsWithGroups(year);
-      const groupAlbums = existingAlbums.filter(a => a.groupId === groupId);
-      const maxOrder = groupAlbums.reduce((max, album) => {
-        const order = album.metadata?.displayOrder ?? -1;
-        return order > max ? order : max;
-      }, -1);
-      displayOrder = maxOrder + 1;
-    } else {
-      // For ungrouped albums, use unified ordering
-      const { getUnifiedYearItems } = await import('@/lib/groups');
-      const existingItems = await getUnifiedYearItems(year);
-      const maxOrder = existingItems.reduce((max, item) => {
-        const order = item.displayOrder ?? -1;
-        return order > max ? order : max;
-      }, -1);
-      displayOrder = maxOrder + 1;
-    }
-
-    const metadata: AlbumMetadata = {
-      name,
-      location: location || '',
-      description: description || '',
-      text: '', // Initialize text field
-      created: new Date().toISOString(),
-      photos: [],
-      videos: [],
-      displayOrder: displayOrder,
-    };
-    
-    await saveAlbumMetadata(albumPath, metadata);
-
-    log(TAG, 'Album created successfully', { albumName, year, groupId, albumPath: albumPath.split('public/albums/')[1] });
+    log(TAG, 'Album created successfully', { albumId, urlName, year, groupId });
 
     const jsonResponse = NextResponse.json({
       success: true,
       message: 'Album created successfully',
-      albumPath: albumPath.split('public/albums/')[1],
+      albumId,
+      urlName,
     });
 
-    // Add CORS headers if needed for production
     if (process.env.NODE_ENV === 'production') {
       jsonResponse.headers.set('Access-Control-Allow-Credentials', 'true');
       const origin = request.headers.get('origin');
