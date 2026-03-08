@@ -2,7 +2,6 @@ import { getIronSession } from 'iron-session';
 import { SessionData } from '@/types';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
 
 // Log session configuration for debugging
 const isProduction = process.env.NODE_ENV === 'production';
@@ -79,7 +78,8 @@ export async function getSession() {
 }
 
 export function generateAccessKey(): string {
-  return randomBytes(24).toString('base64url');
+  return Math.random().toString(36).substring(2, 15) + 
+         Math.random().toString(36).substring(2, 15);
 }
 
 export async function validateSession(request: NextRequest): Promise<SessionData> {

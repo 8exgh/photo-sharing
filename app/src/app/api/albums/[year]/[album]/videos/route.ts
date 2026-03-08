@@ -30,20 +30,6 @@ export async function POST(
       return NextResponse.json({ error: 'URL and title are required' }, { status: 400 });
     }
 
-    try {
-      const parsed = new URL(url);
-      if (parsed.protocol !== 'https:') {
-        return NextResponse.json({ error: 'Only HTTPS URLs allowed' }, { status: 400 });
-      }
-    } catch {
-      return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
-    }
-
-    const MAX_TEXT_LENGTH = 10000;
-    if (typeof title === 'string' && title.length > MAX_TEXT_LENGTH) {
-      return NextResponse.json({ error: `Text too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 });
-    }
-
     const albumData = queryAlbumByYearAndUrlName(year, album);
     if (!albumData) {
       log(TAG, 'Album not found', { year, album });
