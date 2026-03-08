@@ -39,6 +39,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'File too large (max 50MB)' }, { status: 413 });
+    }
+
     const { photoId } = await uploadPhoto(albumData.albumId, file);
 
     log(TAG, 'Photo uploaded successfully', { year, album, photoId });

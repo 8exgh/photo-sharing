@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
+import { queryIsValidAccessKey } from '@/lib/queries';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { logRequest, log, logError } from '@/lib/logger';
@@ -23,6 +24,18 @@ export async function GET(
     if (!session.isAuthenticated) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Validate access key for non-admin sessions
+    if (!session.isAdmin && session.accessKey) {
+      const keyIsValid = queryIsValidAccessKey(session.accessKey);
+      if (!keyIsValid) {
+        log(TAG, 'Access key no longer valid');
+        session.isAuthenticated = false;
+        session.accessKey = undefined;
+        await session.save();
+        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
+      }
     }
 
     // Validate UUID format

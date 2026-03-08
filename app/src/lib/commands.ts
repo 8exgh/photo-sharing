@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { join } from 'path';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
@@ -44,8 +44,7 @@ export function createAccessKey(expires?: string): string {
   const TAG = 'commands:createAccessKey';
   const db = getDb();
 
-  const key = Math.random().toString(36).substring(2, 15) +
-              Math.random().toString(36).substring(2, 15);
+  const key = randomBytes(24).toString('base64url');
 
   const event: AccessKeyCreated = {
     type: 'access_key_created',

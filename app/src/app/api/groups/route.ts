@@ -72,6 +72,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const MAX_TEXT_LENGTH = 10000;
+    if ((typeof displayName === 'string' && displayName.length > MAX_TEXT_LENGTH) ||
+        (typeof description === 'string' && description.length > MAX_TEXT_LENGTH)) {
+      return NextResponse.json({ error: `Text too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 });
+    }
+
     const { groupId } = createGroup({ year, groupName, displayName, description: description || '' });
     const groups = queryGroupsByYear(year);
     const group = groups.find(g => g.id === groupId);
