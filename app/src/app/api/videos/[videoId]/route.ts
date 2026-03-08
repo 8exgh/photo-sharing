@@ -24,12 +24,6 @@ export async function PUT(
 
     const { text, title } = await request.json();
 
-    const MAX_TEXT_LENGTH = 10000;
-    if ((typeof text === 'string' && text.length > MAX_TEXT_LENGTH) ||
-        (typeof title === 'string' && title.length > MAX_TEXT_LENGTH)) {
-      return NextResponse.json({ error: `Text too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 });
-    }
-
     const updated = updateVideoMetadata(videoId, {
       text: text !== undefined ? text : undefined,
       title: title !== undefined ? title : undefined,

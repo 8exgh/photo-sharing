@@ -6,6 +6,25 @@ import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
+// Handle preflight requests for CORS
+export async function OPTIONS(request: NextRequest) {
+  const TAG = 'OPTIONS /api/albums';
+  const response = new NextResponse(null, { status: 200 });
+
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+
+  const origin = request.headers.get('origin');
+  if (origin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+  }
+
+  logRequest(TAG, request, { msg: 'Preflight request handled', origin });
+
+  return response;
+}
+
 export async function GET(request: NextRequest) {
   const TAG = 'GET /api/albums';
   try {
@@ -101,13 +120,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and year are required' }, { status: 400 });
     }
 
-    const MAX_TEXT_LENGTH = 10000;
-    if ((typeof name === 'string' && name.length > MAX_TEXT_LENGTH) ||
-        (typeof description === 'string' && description.length > MAX_TEXT_LENGTH) ||
-        (typeof location === 'string' && location.length > MAX_TEXT_LENGTH)) {
-      return NextResponse.json({ error: `Text too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 });
-    }
-
     const { albumId, urlName } = createAlbum({ name, year, location, description, groupId, datePrefix });
 
     log(TAG, 'Album created successfully', { albumId, urlName, year, groupId });
@@ -118,6 +130,14 @@ export async function POST(request: NextRequest) {
       albumId,
       urlName,
     });
+
+    if (process.env.NODE_ENV === 'production') {
+      jsonResponse.headers.set('Access-Control-Allow-Credentials', 'true');
+      const origin = request.headers.get('origin');
+      if (origin) {
+        jsonResponse.headers.set('Access-Control-Allow-Origin', origin);
+      }
+    }
 
     return jsonResponse;
   } catch (error) {
