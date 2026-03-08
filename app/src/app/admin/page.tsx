@@ -483,6 +483,12 @@ export default function AdminDashboard() {
             >
               Manage Groups
             </Link>
+            <Link
+              href="/admin/logs"
+              className="bg-slate-600 text-white px-4 py-2 rounded-md hover:bg-slate-500 text-sm"
+            >
+              Server Logs
+            </Link>
           </div>
           <button
             onClick={handleLogout}
