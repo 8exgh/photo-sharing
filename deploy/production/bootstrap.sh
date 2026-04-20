@@ -5,25 +5,27 @@ set -euo pipefail
 # Single-command VPS bootstrap for tik_tycholaz
 #
 # Usage:
-#   curl -fsSL http://homelab.local/files/bootstrap.sh | sudo bash -s -- <domain> [admin-password] [image]
-#   sudo bash bootstrap.sh <domain> [admin-password] [image]
+#   curl -fsSL http://homelab.local/files/bootstrap.sh | sudo bash -s -- <domain> [admin-password] [image] [poll-interval]
+#   sudo bash bootstrap.sh <domain> [admin-password] [image] [poll-interval]
 #
 # Examples:
 #   sudo bash bootstrap.sh photos.example.com s3cretpass
-#   sudo bash bootstrap.sh :80 changeme                           # HTTP-only (Vagrant dev)
-#   sudo bash bootstrap.sh :80 changeme 192.168.56.1:5000/tik_tycholaz:latest
+#   sudo bash bootstrap.sh :80 changeme                                                            # HTTP-only (Vagrant dev)
+#   sudo bash bootstrap.sh :80 changeme 192.168.56.1:5000/tik_tycholaz:latest 30                   # local POC, fast watchtower polling
 # ---------------------------------------------------------------------------
 
 DOMAIN="${1:-}"
 ADMIN_PASSWORD="${2:-}"
 IMAGE="${3:-192.168.56.1:5000/tik_tycholaz:latest}"
+POLL_INTERVAL="${4:-300}"
 
 if [ -z "$DOMAIN" ]; then
-  echo "Usage: bootstrap.sh <domain> [admin-password] [image]"
+  echo "Usage: bootstrap.sh <domain> [admin-password] [image] [poll-interval]"
   echo ""
   echo "  domain          Domain name (e.g. photos.example.com) or :80 for HTTP-only"
   echo "  admin-password  Admin password (generated if omitted)"
   echo "  image           Docker image (default: 192.168.56.1:5000/tik_tycholaz:latest)"
+  echo "  poll-interval   Watchtower poll interval in seconds (default: 300)"
   exit 1
 fi
 
@@ -88,6 +90,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
+      # containrrr/watchtower's bundled Docker SDK reports API 1.25, which Docker
+      # 25+ rejects (min 1.44). Pin the negotiated version so the daemon accepts.
+      - DOCKER_API_VERSION=1.44
       - WATCHTOWER_LABEL_ENABLE=true
       - WATCHTOWER_POLL_INTERVAL=${WATCHTOWER_POLL_INTERVAL:-300}
       - WATCHTOWER_CLEANUP=true
@@ -142,7 +147,7 @@ SESSION_SECRET=${SESSION_SECRET}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 COOKIE_SECURE=${COOKIE_SECURE}
 IMAGE=${IMAGE}
-WATCHTOWER_POLL_INTERVAL=300
+WATCHTOWER_POLL_INTERVAL=${POLL_INTERVAL}
 ENV_EOF
 else
   echo "==> .env already exists, preserving."

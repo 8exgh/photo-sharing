@@ -1,1 +1,0 @@
-virsh -c qemu:///system list --all
