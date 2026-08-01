@@ -81,7 +81,7 @@ jobs:
             NEXT_PUBLIC_BUILD_NUMBER=${{ github.run_number }}
             NEXT_PUBLIC_BUILD_TIME=${{ steps.timestamp.outputs.timestamp_iso }}
 
-      - name: Trigger Tik Photos deployment
+      - name: Trigger Photos deployment
         run: |
           curl -f -X POST \
             -H "Accept: application/vnd.github+json" \
