@@ -1102,7 +1102,7 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <p className="text-xs text-slate-400 mt-3">
-                PNG, JPEG, or WebP up to 2 MB. Shown on the landing page and album pages.
+                PNG, JPEG, or WebP up to 2 MB. Shown on the landing page and album pages, and used as the browser tab icon.
               </p>
             </div>
           </div>

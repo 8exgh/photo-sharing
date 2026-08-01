@@ -38,7 +38,8 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/api/images': ['./data/**/*'],
     '/api/thumbnails': ['./data/**/*'],
-    '/api/logo': ['./data/**/*', './public/logo.svg'],
+    '/api/logo': ['./data/**/*', './public/logo.png'],
+    '/api/favicon': ['./data/**/*', './public/favicon.png'],
   },
 };
 

@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Photo Album System",
   description: "A private photo album",
+  icons: {
+    icon: "/api/favicon",
+  },
 };
 
 export default function RootLayout({

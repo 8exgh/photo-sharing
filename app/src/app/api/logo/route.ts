@@ -10,7 +10,8 @@ export const runtime = 'nodejs';
 const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
 const BRANDING_DIR = join(DATA_DIR, 'branding');
 const CUSTOM_LOGO = join(BRANDING_DIR, 'logo.png');
-const PLACEHOLDER_LOGO = join(process.cwd(), 'public', 'logo.svg');
+const CUSTOM_FAVICON = join(BRANDING_DIR, 'favicon.png');
+const PLACEHOLDER_LOGO = join(process.cwd(), 'public', 'logo.png');
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     } catch {
       // No custom logo uploaded - fall back to the bundled placeholder
     }
-    return await serveLogo(request, PLACEHOLDER_LOGO, 'image/svg+xml');
+    return await serveLogo(request, PLACEHOLDER_LOGO, 'image/png');
   } catch (error) {
     logError(TAG, 'Error serving logo', error);
     return NextResponse.json({ error: 'Logo not found' }, { status: 404 });
@@ -81,9 +82,14 @@ export async function POST(request: NextRequest) {
       .resize(512, 512, { fit: 'inside', withoutEnlargement: true })
       .png()
       .toBuffer();
+    const favicon = await sharp(buffer)
+      .resize(64, 64, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .png()
+      .toBuffer();
 
     await fs.mkdir(BRANDING_DIR, { recursive: true });
     await fs.writeFile(CUSTOM_LOGO, png);
+    await fs.writeFile(CUSTOM_FAVICON, favicon);
 
     log(TAG, 'Logo uploaded successfully', { size: png.length });
     return NextResponse.json({ success: true });
@@ -106,10 +112,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    try {
-      await fs.unlink(CUSTOM_LOGO);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    for (const path of [CUSTOM_LOGO, CUSTOM_FAVICON]) {
+      try {
+        await fs.unlink(path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
     }
 
     log(TAG, 'Logo reverted to default');
