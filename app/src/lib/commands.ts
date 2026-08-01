@@ -7,6 +7,7 @@ import { buildReadModel } from './projection';
 import { log, logError } from './logger';
 import type {
   AccessKeyCreated,
+  AccessKeyLabeled,
   AccessKeyRevoked,
   AlbumCreated,
   AlbumMetadataUpdated,
@@ -40,7 +41,7 @@ async function ensureImageDirs() {
 
 // --- Access Keys ---
 
-export function createAccessKey(expires?: string): string {
+export function createAccessKey(expires?: string, label?: string): string {
   const TAG = 'commands:createAccessKey';
   const db = getDb();
 
@@ -53,14 +54,38 @@ export function createAccessKey(expires?: string): string {
     key,
     created: new Date().toISOString(),
     expires,
+    label: label?.trim() || undefined,
   };
 
   db.transaction(() => {
     appendEvent(event.type, event.version, event);
   })();
 
-  log(TAG, 'Access key created', { keyPrefix: key.substring(0, 6) });
+  log(TAG, 'Access key created', { keyPrefix: key.substring(0, 6), hasLabel: !!event.label });
   return key;
+}
+
+export function labelAccessKey(key: string, label: string): boolean {
+  const TAG = 'commands:labelAccessKey';
+  const db = getDb();
+
+  return db.transaction(() => {
+    const model = buildReadModel();
+    if (!model.accessKeys.has(key)) {
+      log(TAG, 'Key not found', { keyPrefix: key.substring(0, 6) });
+      return false;
+    }
+
+    const event: AccessKeyLabeled = {
+      type: 'access_key_labeled',
+      version: 1,
+      key,
+      label: label.trim(),
+    };
+    appendEvent(event.type, event.version, event);
+    log(TAG, 'Access key labeled', { keyPrefix: key.substring(0, 6) });
+    return true;
+  })();
 }
 
 export function revokeAccessKey(key: string): boolean {

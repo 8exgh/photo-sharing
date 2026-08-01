@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { createAccessKey, revokeAccessKey } from '@/lib/commands';
+import { createAccessKey, labelAccessKey, revokeAccessKey } from '@/lib/commands';
 import { queryAllAccessKeys } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
@@ -45,15 +45,64 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { expires } = body;
-    log(TAG, 'Creating access key', { expires });
+    const { expires, label } = body;
 
-    const key = createAccessKey(expires);
+    if (label !== undefined && (typeof label !== 'string' || label.length > 200)) {
+      log(TAG, 'Invalid label');
+      return NextResponse.json({ error: 'Label must be a string of at most 200 characters' }, { status: 400 });
+    }
+
+    log(TAG, 'Creating access key', { expires, hasLabel: !!label });
+
+    const key = createAccessKey(expires, label);
     log(TAG, 'Access key created', { keyPrefix: key.substring(0, 8) + '...' });
 
     return NextResponse.json({ key });
   } catch (error) {
     logError(TAG, 'Error creating access key', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const TAG = 'PATCH /api/access-keys';
+  try {
+    logRequest(TAG, request, { msg: 'Label access key request' });
+
+    const response = new NextResponse();
+    const session = await getSessionFromRequest(request, response);
+    log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
+
+    if (!session.isAdmin) {
+      log(TAG, 'Unauthorized - not admin');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { key, label } = body;
+
+    if (!key) {
+      log(TAG, 'No key provided');
+      return NextResponse.json({ error: 'Access key is required' }, { status: 400 });
+    }
+
+    if (typeof label !== 'string' || label.length > 200) {
+      log(TAG, 'Invalid label');
+      return NextResponse.json({ error: 'Label must be a string of at most 200 characters' }, { status: 400 });
+    }
+
+    log(TAG, 'Labeling access key', { keyPrefix: key.substring(0, 8) + '...' });
+    const labeled = labelAccessKey(key, label);
+
+    if (!labeled) {
+      log(TAG, 'Key not found');
+      return NextResponse.json({ error: 'Access key not found' }, { status: 404 });
+    }
+
+    log(TAG, 'Access key labeled successfully');
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    logError(TAG, 'Error labeling access key', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

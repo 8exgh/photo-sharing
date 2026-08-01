@@ -1,8 +1,11 @@
+import SiteLogo from '@/components/SiteLogo';
+
 export default function AccessDenied() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-800">
       <div className="max-w-md w-full space-y-8 text-center">
         <div>
+          <SiteLogo size="large" />
           <h2 className="mt-6 text-3xl font-extrabold text-slate-100">
             Access Denied
           </h2>

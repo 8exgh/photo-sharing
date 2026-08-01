@@ -50,7 +50,11 @@ export default function AdminDashboard() {
   const [unifiedItems, setUnifiedItems] = useState<UnifiedYearItem[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string}>>([]);
+  const [accessKeys, setAccessKeys] = useState<Array<{key: string; created: string; expires?: string; label?: string}>>([]);
+  const [newKeyLabel, setNewKeyLabel] = useState('');
+  const [editingLabelKey, setEditingLabelKey] = useState<string | null>(null);
+  const [labelDraft, setLabelDraft] = useState('');
+  const [logoVersion, setLogoVersion] = useState(0);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
@@ -207,15 +211,85 @@ export default function AdminDashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ label: newKeyLabel.trim() || undefined }),
       });
 
       const data = await response.json();
       if (response.ok) {
         setMessage(`Access key created successfully: ${data.key}`);
+        setNewKeyLabel('');
         fetchAccessKeys();
       } else {
         setMessage(data.error || 'Failed to create access key');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveLabel = async (keyToLabel: string) => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/access-keys', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ key: keyToLabel, label: labelDraft.trim() }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Access key label updated');
+        setEditingLabelKey(null);
+        setLabelDraft('');
+        fetchAccessKeys();
+      } else {
+        setMessage(data.error || 'Failed to update label');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUploadLogo = async (file: File) => {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch('/api/logo', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Logo updated successfully');
+        setLogoVersion((v) => v + 1);
+      } else {
+        setMessage(data.error || 'Failed to upload logo');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRevertLogo = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/logo', { method: 'DELETE' });
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Logo reverted to default');
+        setLogoVersion((v) => v + 1);
+      } else {
+        setMessage(data.error || 'Failed to revert logo');
       }
     } catch (_error) {
       setMessage('Network error');
@@ -879,22 +953,89 @@ export default function AdminDashboard() {
           {/* Access Keys Section */}
           <div>
             <div className="bg-slate-700 shadow rounded-lg p-6">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold text-slate-100">Access Keys</h2>
+              </div>
+
+              <div className="flex gap-2 mb-6">
+                <input
+                  type="text"
+                  maxLength={200}
+                  className="flex-1 px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm"
+                  placeholder="Label (who is this for?)"
+                  value={newKeyLabel}
+                  onChange={(e) => setNewKeyLabel(e.target.value)}
+                />
                 <button
                   onClick={handleCreateAccessKey}
                   disabled={loading}
-                  className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50"
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap"
                 >
                   Generate Key
                 </button>
               </div>
 
               <div className="space-y-4">
-                {accessKeys.map((key, index) => (
-                  <div key={index} className="border border-slate-600 rounded-md p-4 bg-slate-800">
+                {accessKeys.map((key) => (
+                  <div key={key.key} className="border border-slate-600 rounded-md p-4 bg-slate-800">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
+                        {editingLabelKey === key.key ? (
+                          <div className="flex gap-2 mb-2">
+                            <input
+                              type="text"
+                              maxLength={200}
+                              autoFocus
+                              className="flex-1 px-2 py-1 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-900 text-slate-100 placeholder-slate-400 text-sm"
+                              placeholder="Label (who is this for?)"
+                              value={labelDraft}
+                              onChange={(e) => setLabelDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveLabel(key.key);
+                                if (e.key === 'Escape') {
+                                  setEditingLabelKey(null);
+                                  setLabelDraft('');
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={() => handleSaveLabel(key.key)}
+                              disabled={loading}
+                              className="bg-emerald-600 text-white px-3 py-1 rounded-md text-sm hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingLabelKey(null);
+                                setLabelDraft('');
+                              }}
+                              className="bg-slate-600 text-slate-300 px-3 py-1 rounded-md text-sm hover:bg-slate-500"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 mb-1">
+                            {key.label ? (
+                              <span className="text-slate-100 font-medium">{key.label}</span>
+                            ) : (
+                              <span className="text-slate-500 italic">Unlabeled</span>
+                            )}
+                            <button
+                              onClick={() => {
+                                setEditingLabelKey(key.key);
+                                setLabelDraft(key.label || '');
+                              }}
+                              className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded"
+                              title="Edit label"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
                         <div className="font-mono text-sm break-all text-slate-200">{key.key}</div>
                         <div className="text-sm text-slate-400 mt-1">
                           Created: {new Date(key.created).toLocaleDateString()}
@@ -924,6 +1065,45 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Site Logo Section */}
+            <div className="bg-slate-700 shadow rounded-lg p-6 mt-8">
+              <h2 className="text-xl font-semibold text-slate-100 mb-4">Site Logo</h2>
+              <div className="flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/logo?t=${logoVersion}`}
+                  alt="Current site logo"
+                  className="h-16 w-auto bg-slate-800 rounded p-2"
+                />
+                <div className="flex flex-col gap-2">
+                  <label className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer text-sm text-center">
+                    Upload Logo
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      disabled={loading}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadLogo(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <button
+                    onClick={handleRevertLogo}
+                    disabled={loading}
+                    className="bg-slate-600 text-slate-300 px-4 py-2 rounded-md hover:bg-slate-500 disabled:opacity-50 text-sm"
+                  >
+                    Revert to default
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400 mt-3">
+                PNG, JPEG, or WebP up to 2 MB. Shown on the landing page and album pages.
+              </p>
             </div>
           </div>
         </div>

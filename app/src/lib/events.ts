@@ -6,6 +6,14 @@ export interface AccessKeyCreated {
   key: string;
   created: string;
   expires?: string;
+  label?: string;
+}
+
+export interface AccessKeyLabeled {
+  type: 'access_key_labeled';
+  version: 1;
+  key: string;
+  label: string;
 }
 
 export interface AccessKeyRevoked {
@@ -180,6 +188,7 @@ export interface GroupReordered {
 
 export type DomainEvent =
   | AccessKeyCreated
+  | AccessKeyLabeled
   | AccessKeyRevoked
   | AlbumCreated
   | AlbumMetadataUpdated

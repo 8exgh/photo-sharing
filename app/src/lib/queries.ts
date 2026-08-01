@@ -2,7 +2,7 @@ import { buildReadModel, AlbumState, PhotoState, VideoState } from './projection
 
 // --- Access Keys ---
 
-export function queryAllAccessKeys(): Array<{ key: string; created: string; expires?: string }> {
+export function queryAllAccessKeys(): Array<{ key: string; created: string; expires?: string; label?: string }> {
   const model = buildReadModel();
   return Array.from(model.accessKeys.values());
 }

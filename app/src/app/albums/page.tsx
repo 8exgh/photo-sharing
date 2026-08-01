@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import {useSessionState} from "@/app/hooks/sessionState";
+import SiteLogo from '@/components/SiteLogo';
 
 interface AlbumInfo {
   albumId: string;
@@ -263,14 +264,17 @@ function AlbumsContent() {
     <div className="min-h-screen bg-slate-800">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-100 mb-2">Photo Albums</h1>
-          <div className="flex items-center text-sm text-emerald-400">
-            <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            Secure Access - Session Active
+        <div className="mb-8 flex justify-between items-start gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-100 mb-2">Photo Albums</h1>
+            <div className="flex items-center text-sm text-emerald-400">
+              <svg className="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Secure Access - Session Active
+            </div>
           </div>
+          <SiteLogo />
         </div>
 
         {/* Hierarchical Album List */}

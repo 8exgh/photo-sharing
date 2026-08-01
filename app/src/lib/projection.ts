@@ -47,7 +47,7 @@ export interface GroupState {
 }
 
 export interface ReadModel {
-  accessKeys: Map<string, { key: string; created: string; expires?: string }>;
+  accessKeys: Map<string, { key: string; created: string; expires?: string; label?: string }>;
   albums: Map<string, AlbumState>;
   groups: Map<string, GroupState>;
 }
@@ -75,7 +75,13 @@ export function buildReadModel(): ReadModel {
           key: event.key,
           created: event.created,
           expires: event.expires,
+          label: event.label,
         });
+        break;
+      }
+      case 'access_key_labeled': {
+        const ak = model.accessKeys.get(event.key);
+        if (ak) ak.label = event.label || undefined;
         break;
       }
       case 'access_key_revoked': {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import SiteLogo from '@/components/SiteLogo';
 
 interface PhotoInfo {
   id: string;
@@ -236,7 +237,8 @@ export default function AlbumView() {
           </div>
 
           {/* Group Header */}
-          <div className="mb-8">
+          <div className="mb-8 flex justify-between items-start gap-4">
+            <div>
             <Link
               href={`/albums?year=${params.year}`}
               className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
@@ -259,6 +261,8 @@ export default function AlbumView() {
               </svg>
               Secure Access - Session Active
             </div>
+            </div>
+            <SiteLogo />
           </div>
 
           {/* Albums Grid */}
@@ -338,7 +342,8 @@ export default function AlbumView() {
   return (
     <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
+        <div className="mb-8 flex justify-between items-start gap-4">
+          <div>
           <Link
             href={getBackUrl()}
             className="text-blue-400 hover:text-blue-300 mb-4 inline-flex items-center"
@@ -371,6 +376,8 @@ export default function AlbumView() {
           {album?.metadata.description && (
             <p className="text-slate-300 mb-4">{album.metadata.description}</p>
           )}
+          </div>
+          <SiteLogo />
         </div>
 
         {/* Two-column layout */}
