@@ -242,7 +242,7 @@ export default function AdminDashboard() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage('Access key label updated');
+        setMessage('Access key label updated successfully');
         setEditingLabelKey(null);
         setLabelDraft('');
         fetchAccessKeys();
@@ -545,6 +545,9 @@ export default function AdminDashboard() {
     return album.groupId === selectedGroup;
   });
 
+  const lowerCaseMessage = message.toLowerCase();
+  const isSuccessHeuristic = lowerCaseMessage.includes('success');
+
   return (
     <div className="min-h-screen bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -572,9 +575,12 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {message && (
+
+        {
+
+          message && (
           <div className={`fixed top-0 left-0 right-0 z-50 shadow-lg ${
-            message.toLowerCase().includes('successfully') ? 'bg-green-600 text-white border-b border-green-500' : 'bg-red-900 text-red-100 border-b border-red-700'
+            isSuccessHeuristic ? 'bg-green-600 text-white border-b border-green-500' : 'bg-red-900 text-red-100 border-b border-red-700'
           }`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className="flex items-center justify-between">
