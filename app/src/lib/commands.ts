@@ -6,6 +6,7 @@ import { getDb, appendEvent } from './eventstore';
 import { buildReadModel } from './projection';
 import { log, logError } from './logger';
 import type {
+  AdminPasswordSet,
   AccessKeyCreated,
   AccessKeyLabeled,
   AccessKeyRevoked,
@@ -37,6 +38,54 @@ const THUMBNAILS_DIR = join(DATA_DIR, 'thumbnails');
 async function ensureImageDirs() {
   await fs.mkdir(IMAGES_DIR, { recursive: true });
   await fs.mkdir(THUMBNAILS_DIR, { recursive: true });
+}
+
+// --- Admin Password ---
+
+export function claimAdminPassword(hash: string): boolean {
+  const TAG = 'commands:claimAdminPassword';
+  const db = getDb();
+
+  return db.transaction(() => {
+    const model = buildReadModel();
+    if (model.adminPasswordHash) {
+      log(TAG, 'Admin password already claimed');
+      return false;
+    }
+
+    const event: AdminPasswordSet = {
+      type: 'admin_password_set',
+      version: 1,
+      hash,
+      created: new Date().toISOString(),
+    };
+    appendEvent(event.type, event.version, event);
+    log(TAG, 'Admin password claimed');
+    return true;
+  })();
+}
+
+export function changeAdminPassword(hash: string): boolean {
+  const TAG = 'commands:changeAdminPassword';
+  const db = getDb();
+
+  return db.transaction(() => {
+    const model = buildReadModel();
+    if (!model.adminPasswordHash) {
+      log(TAG, 'No admin password set - nothing to change');
+      return false;
+    }
+
+    const event: AdminPasswordSet = {
+      type: 'admin_password_set',
+      version: 1,
+      hash,
+      created: new Date().toISOString(),
+    };
+    appendEvent(event.type, event.version, event);
+    log(TAG, 'Admin password changed');
+    return true;
+  })();
 }
 
 // --- Access Keys ---

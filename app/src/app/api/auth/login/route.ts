@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
+import { queryAdminPasswordHash } from '@/lib/queries';
+import { verifyPassword } from '@/lib/password';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -11,10 +13,13 @@ export async function POST(request: NextRequest) {
 
     const { password } = await request.json();
 
-    // Simple admin password check (in production, use proper authentication)
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const storedHash = queryAdminPasswordHash();
+    if (!storedHash) {
+      log(TAG, 'No admin password set - setup required');
+      return NextResponse.json({ error: 'Admin password has not been set yet', needsSetup: true }, { status: 409 });
+    }
 
-    if (password === adminPassword) {
+    if (typeof password === 'string' && verifyPassword(password, storedHash)) {
       log(TAG, 'Password correct, creating admin session');
 
       const response = new NextResponse();

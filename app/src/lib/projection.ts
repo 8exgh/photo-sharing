@@ -47,6 +47,7 @@ export interface GroupState {
 }
 
 export interface ReadModel {
+  adminPasswordHash?: string;
   accessKeys: Map<string, { key: string; created: string; expires?: string; label?: string }>;
   albums: Map<string, AlbumState>;
   groups: Map<string, GroupState>;
@@ -69,6 +70,12 @@ export function buildReadModel(): ReadModel {
     const event = JSON.parse(stored.payload) as DomainEvent;
 
     switch (event.type) {
+      // --- Admin Password ---
+      case 'admin_password_set': {
+        model.adminPasswordHash = event.hash;
+        break;
+      }
+
       // --- Access Keys ---
       case 'access_key_created': {
         model.accessKeys.set(event.key, {

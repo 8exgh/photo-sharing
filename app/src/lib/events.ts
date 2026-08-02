@@ -1,5 +1,12 @@
 // Domain Events — discriminated union of all event types
 
+export interface AdminPasswordSet {
+  type: 'admin_password_set';
+  version: 1;
+  hash: string;
+  created: string;
+}
+
 export interface AccessKeyCreated {
   type: 'access_key_created';
   version: 1;
@@ -187,6 +194,7 @@ export interface GroupReordered {
 }
 
 export type DomainEvent =
+  | AdminPasswordSet
   | AccessKeyCreated
   | AccessKeyLabeled
   | AccessKeyRevoked

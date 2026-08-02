@@ -1,5 +1,11 @@
 import { buildReadModel, AlbumState, PhotoState, VideoState } from './projection';
 
+// --- Admin Password ---
+
+export function queryAdminPasswordHash(): string | undefined {
+  return buildReadModel().adminPasswordHash;
+}
+
 // --- Access Keys ---
 
 export function queryAllAccessKeys(): Array<{ key: string; created: string; expires?: string; label?: string }> {

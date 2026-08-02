@@ -55,6 +55,9 @@ export default function AdminDashboard() {
   const [editingLabelKey, setEditingLabelKey] = useState<string | null>(null);
   const [labelDraft, setLabelDraft] = useState('');
   const [logoVersion, setLogoVersion] = useState(0);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [buildInfo, setBuildInfo] = useState<BuildInfo | null>(null);
@@ -248,6 +251,39 @@ export default function AdminDashboard() {
         fetchAccessKeys();
       } else {
         setMessage(data.error || 'Failed to update label');
+      }
+    } catch (_error) {
+      setMessage('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setMessage('New passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Admin password changed successfully');
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmNewPassword('');
+      } else {
+        setMessage(data.error || 'Failed to change password');
       }
     } catch (_error) {
       setMessage('Network error');
@@ -1110,6 +1146,49 @@ export default function AdminDashboard() {
               <p className="text-xs text-slate-400 mt-3">
                 PNG, JPEG, or WebP up to 2 MB. Shown on the landing page and album pages, and used as the browser tab icon.
               </p>
+            </div>
+
+            {/* Change Password Section */}
+            <div className="bg-slate-700 shadow rounded-lg p-6 mt-8">
+              <h2 className="text-xl font-semibold text-slate-100 mb-4">Admin Password</h2>
+              <form onSubmit={handleChangePassword} className="space-y-3">
+                <input
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm"
+                  placeholder="Current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm"
+                  placeholder="New password (min 8 characters)"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  className="w-full px-3 py-2 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-800 text-slate-100 placeholder-slate-400 text-sm"
+                  placeholder="Confirm new password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  Change Password
+                </button>
+              </form>
             </div>
           </div>
         </div>

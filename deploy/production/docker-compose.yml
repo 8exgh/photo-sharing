@@ -7,7 +7,6 @@ services:
     environment:
       - NODE_ENV=production
       - SESSION_SECRET=${SESSION_SECRET}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - DATA_DIR=/app/data
       - ALBUMS_DIR=/app/data/albums
     labels:
