@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminLogin() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
+  const [defaultPassword, setDefaultPassword] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,7 +35,7 @@ export default function AdminLogin() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(needsSetup ? { defaultPassword, password } : { password }),
       });
 
       if (response.ok) {
@@ -73,13 +74,25 @@ export default function AdminLogin() {
           </h2>
           {needsSetup && (
             <p className="mt-2 text-center text-sm text-slate-300">
-              No admin password has been set for this site yet. Choose one now to
-              claim the admin account.
+              No admin password has been set for this site yet. Enter the default
+              password, then choose your own to claim the admin account.
             </p>
           )}
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-3">
+            {needsSetup && (
+              <input
+                id="defaultPassword"
+                name="defaultPassword"
+                type="password"
+                required
+                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-slate-600 placeholder-slate-400 text-slate-100 bg-slate-700 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                placeholder="Default password"
+                value={defaultPassword}
+                onChange={(e) => setDefaultPassword(e.target.value)}
+              />
+            )}
             <label htmlFor="password" className="sr-only">
               Password
             </label>
