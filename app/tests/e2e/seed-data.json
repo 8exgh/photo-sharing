@@ -3,7 +3,8 @@
     "username": "rogers-family",
     "email": "rogers-family@example.com",
     "password": "e2e-admin-password-123",
-    "accessKey": "rogers-family.e2etestkey0123456789"
+    "accessKey": "rogers-family.e2etestkey0123456789",
+    "legacyAccessKey": "legacye2ekey0123456789abc"
   },
   "otherTenant": {
     "username": "neighbor",

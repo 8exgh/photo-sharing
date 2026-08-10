@@ -104,6 +104,16 @@ function createTenant(tenant) {
 // --- Main tenant: albums, group, video ---
 const main = createTenant(seed.mainTenant);
 
+// A pre-multi-tenant key with no "<tenant>." prefix — resolved by scanning
+// tenants, exactly like keys migrated from production
+main.append({
+  type: 'access_key_created',
+  version: 1,
+  key: seed.mainTenant.legacyAccessKey,
+  created: now,
+  label: 'Seeded legacy key',
+});
+
 main.append({
   type: 'group_created',
   version: 1,

@@ -16,6 +16,8 @@ const serverEnv = {
   SESSION_SECRET: 'playwright-e2e-only-session-secret-0123456789',
   COOKIE_SECURE: 'false',
   EMAIL_DRY_RUN: '1',
+  // Fast background-processor cycles so the email-processor specs don't wait
+  POLLING_INTERVAL_MS: '1000',
 };
 
 export default defineConfig({

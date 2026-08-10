@@ -1,29 +1,10 @@
-import Database from 'better-sqlite3';
-import { join } from 'path';
 import { expect, test, uniqueUsername } from '../fixtures';
+import { readVerificationToken } from '../fresh-db';
 
 // Runs against the "fresh" server (empty data dir). Registration records the
 // tenant; the background processor emails a verification link (EMAIL_DRY_RUN
 // in tests); the account only works after the link is used. Tests read the
 // verification token straight from the tenant's own events.db.
-const FRESH_DATA_DIR = join(__dirname, '..', '..', '..', '.e2e-data', 'fresh', 'data');
-
-function readVerificationToken(username: string): string {
-  const db = new Database(join(FRESH_DATA_DIR, 'tenants', username, 'events.db'), {
-    readonly: true,
-  });
-  try {
-    const row = db
-      .prepare(
-        "SELECT payload FROM events WHERE event_type = 'tenant_registered' ORDER BY sequence_number DESC LIMIT 1"
-      )
-      .get() as { payload: string } | undefined;
-    if (!row) throw new Error(`No tenant_registered event for ${username}`);
-    return JSON.parse(row.payload).verificationToken;
-  } finally {
-    db.close();
-  }
-}
 
 test.describe('Self-registration with email verification', () => {
   test('registers, verifies via the emailed link, and signs in', async ({
@@ -98,5 +79,38 @@ test.describe('Self-registration with email verification', () => {
     await page.goto('/admin');
     await expect(page).toHaveURL(/\/admin\/login/);
     await expect(adminLoginPage.loginHeading).toBeVisible();
+  });
+
+  test('a tenant admin can change their password', async ({
+    page,
+    adminLoginPage,
+    adminDashboardPage,
+  }) => {
+    const username = uniqueUsername('e2e-passwd');
+
+    // Register + verify + sign in through the API for speed
+    await page.request.post('/api/auth/register', {
+      data: { username, email: `${username}@example.com`, password: 'old-password-1234' },
+    });
+    const token = readVerificationToken(username);
+    await page.goto(`/api/auth/verify?username=${username}&token=${token}`);
+    await expect(page).toHaveURL(/verified=1/);
+
+    await adminLoginPage.login(username, 'old-password-1234');
+    await expect(adminDashboardPage.heading).toBeVisible();
+
+    await page.getByPlaceholder('Current password').fill('old-password-1234');
+    await page.getByPlaceholder('New password (min 8 characters)').fill('new-password-5678');
+    await page.getByPlaceholder('Confirm new password').fill('new-password-5678');
+    await page.getByRole('button', { name: 'Change Password' }).click();
+    await expect(adminDashboardPage.messageBanner).toContainText('Admin password changed successfully');
+
+    await adminDashboardPage.logoutButton.click();
+    await expect(page).toHaveURL(/\/admin\/login/);
+
+    await adminLoginPage.login(username, 'old-password-1234');
+    await expect(adminLoginPage.errorBanner).toContainText('Invalid username or password');
+    await adminLoginPage.login(username, 'new-password-5678');
+    await expect(adminDashboardPage.heading).toBeVisible();
   });
 });
