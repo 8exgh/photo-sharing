@@ -10,7 +10,7 @@
 import Database from 'better-sqlite3';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync, renameSync } from 'fs';
-import { join } from 'path';
+import { join, resolve } from 'path';
 
 const TENANT_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,13 +26,16 @@ if (!EMAIL_PATTERN.test(email || '')) {
   process.exit(1);
 }
 
-const dataDir = join(process.cwd(), process.env.DATA_DIR || 'data');
+// resolve (not join) so an absolute DATA_DIR like /app/data works as-is
+const dataDir = resolve(process.cwd(), process.env.DATA_DIR || 'data');
 const oldDb = join(dataDir, 'events.db');
 const tenantDir = join(dataDir, 'tenants', username);
 
 if (!existsSync(oldDb)) {
-  console.error(`No single-tenant database found at ${oldDb} - nothing to migrate.`);
-  process.exit(1);
+  // Normal on a fresh install or once migration has already run — deploys
+  // run this unconditionally, so this is a successful no-op.
+  console.log(`No single-tenant database at ${oldDb} - nothing to migrate.`);
+  process.exit(0);
 }
 if (existsSync(tenantDir)) {
   console.error(`Tenant directory ${tenantDir} already exists - refusing to overwrite.`);
