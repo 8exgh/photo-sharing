@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { updateAlbumText } from '@/lib/commands';
-import { queryAlbumByYearAndUrlName } from '@/lib/queries';
+import { queryAlbumByYearAndUrlName, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -18,20 +18,21 @@ export async function PUT(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { text } = await request.json();
 
-    const albumData = queryAlbumByYearAndUrlName(year, album);
+    const albumData = queryAlbumByYearAndUrlName(tenantId, year, album);
     if (!albumData) {
       log(TAG, 'Album not found', { year, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
 
-    updateAlbumText(albumData.albumId, text || '');
+    updateAlbumText(tenantId, albumData.albumId, text || '');
 
     log(TAG, 'Album text updated successfully', { year, album });
 

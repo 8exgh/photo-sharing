@@ -9,6 +9,10 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - DATA_DIR=/app/data
       - ALBUMS_DIR=/app/data/albums
+      # Registration verification emails (Gmail app password, same as daycare)
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - APP_BASE_URL=${APP_BASE_URL:-https://${DOMAIN}}
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 

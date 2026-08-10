@@ -1,8 +1,12 @@
+import { existsSync } from 'fs';
+import { join } from 'path';
 import sharp from 'sharp';
 import { expect, loginAsAdmin, seed, test } from '../fixtures';
 
+const SEEDED_DATA_DIR = join(__dirname, '..', '..', '..', '.e2e-data', 'seeded', 'data');
+
 test.describe('Photo upload', () => {
-  test('uploads a photo and resizes it to display resolution', async ({
+  test('uploads a photo, resizes it, and stores it in the tenant folder', async ({
     page,
     adminAlbumPage,
   }) => {
@@ -35,5 +39,12 @@ test.describe('Photo upload', () => {
     expect(imageResponse.ok()).toBeTruthy();
     const stored = await sharp(await imageResponse.body()).metadata();
     expect(Math.max(stored.width ?? 0, stored.height ?? 0)).toBeLessThanOrEqual(1920);
+
+    // The files live in this tenant's own folder tree — and nobody else's
+    const tenantDir = join(SEEDED_DATA_DIR, 'tenants', seed.mainTenant.username);
+    expect(existsSync(join(tenantDir, 'images', `${photoId}.jpg`))).toBe(true);
+    expect(existsSync(join(tenantDir, 'thumbnails', `${photoId}.jpg`))).toBe(true);
+    const otherTenantDir = join(SEEDED_DATA_DIR, 'tenants', seed.otherTenant.username);
+    expect(existsSync(join(otherTenantDir, 'images', `${photoId}.jpg`))).toBe(false);
   });
 });

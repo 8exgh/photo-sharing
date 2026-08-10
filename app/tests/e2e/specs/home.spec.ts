@@ -13,4 +13,11 @@ test.describe('Landing page', () => {
     await expect(page).toHaveURL(/\/admin\/login/);
     await expect(adminLoginPage.loginHeading).toBeVisible();
   });
+
+  test('Register link navigates to the registration page', async ({ homePage, registerPage, page }) => {
+    await homePage.goto();
+    await homePage.registerLink.click();
+    await expect(page).toHaveURL(/\/register/);
+    await expect(registerPage.heading).toBeVisible();
+  });
 });

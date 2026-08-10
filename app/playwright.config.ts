@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // Two production servers are started from the same `next build` output:
-//  - seeded (3100): claimed admin password, an access key, and sample content
-//  - fresh  (3101): empty data dir, exercises the first-run admin claim flow
+//  - seeded (3100): two verified tenants with albums and access keys
+//  - fresh  (3101): empty data dir, exercises self-registration + verification
 const SEEDED_PORT = 3100;
 const FRESH_PORT = 3101;
 
@@ -10,10 +10,12 @@ export const SEEDED_BASE_URL = `http://127.0.0.1:${SEEDED_PORT}`;
 export const FRESH_BASE_URL = `http://127.0.0.1:${FRESH_PORT}`;
 
 // SESSION_SECRET must be >=32 chars in production; COOKIE_SECURE=false so the
-// session cookie works over plain http.
+// session cookie works over plain http. EMAIL_DRY_RUN logs verification
+// emails instead of sending them — tests read the token from the tenant DB.
 const serverEnv = {
   SESSION_SECRET: 'playwright-e2e-only-session-secret-0123456789',
   COOKIE_SECURE: 'false',
+  EMAIL_DRY_RUN: '1',
 };
 
 export default defineConfig({
@@ -31,12 +33,12 @@ export default defineConfig({
   projects: [
     {
       name: 'main',
-      testIgnore: /first-run/,
+      testIgnore: /registration/,
       use: { ...devices['Desktop Chrome'], baseURL: SEEDED_BASE_URL },
     },
     {
-      name: 'first-run',
-      testMatch: /first-run/,
+      name: 'registration',
+      testMatch: /registration/,
       use: { ...devices['Desktop Chrome'], baseURL: FRESH_BASE_URL },
     },
   ],

@@ -1,19 +1,12 @@
 import Database from 'better-sqlite3';
 import { join } from 'path';
-import { mkdirSync } from 'fs';
+import { tenantDir, tenantExists } from './tenants';
 
-const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
-const DB_PATH = join(DATA_DIR, 'events.db');
+// One SQLite event store per tenant, cached per process.
+const dbCache = new Map<string, Database.Database>();
 
-let db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (db) return db;
-
-  // Ensure data directory exists
-  mkdirSync(DATA_DIR, { recursive: true });
-
-  db = new Database(DB_PATH);
+function openDb(tenantId: string): Database.Database {
+  const db = new Database(join(tenantDir(tenantId), 'events.db'));
   db.pragma('journal_mode = WAL');
 
   db.exec(`
@@ -26,7 +19,24 @@ export function getDb(): Database.Database {
     );
   `);
 
+  dbCache.set(tenantId, db);
   return db;
+}
+
+export function getDb(tenantId: string): Database.Database {
+  const cached = dbCache.get(tenantId);
+  if (cached) return cached;
+
+  if (!tenantExists(tenantId)) {
+    throw new Error(`Unknown tenant: ${tenantId}`);
+  }
+  return openDb(tenantId);
+}
+
+// Called during registration, after createTenantDir: creates the events.db
+// file that makes the tenant "exist".
+export function initTenantDb(tenantId: string): Database.Database {
+  return openDb(tenantId);
 }
 
 export interface StoredEvent {
@@ -37,8 +47,8 @@ export interface StoredEvent {
   created_at: string;
 }
 
-export function appendEvent(type: string, version: number, payload: object): number {
-  const db = getDb();
+export function appendEvent(tenantId: string, type: string, version: number, payload: object): number {
+  const db = getDb(tenantId);
   const stmt = db.prepare(
     'INSERT INTO events (event_type, event_version, payload) VALUES (?, ?, ?)'
   );
@@ -46,8 +56,8 @@ export function appendEvent(type: string, version: number, payload: object): num
   return result.lastInsertRowid as number;
 }
 
-export function getAllEvents(): StoredEvent[] {
-  const db = getDb();
+export function getAllEvents(tenantId: string): StoredEvent[] {
+  const db = getDb(tenantId);
   const stmt = db.prepare('SELECT * FROM events ORDER BY sequence_number ASC');
   return stmt.all() as StoredEvent[];
 }

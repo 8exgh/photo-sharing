@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { reorderGroup } from '@/lib/commands';
-import { queryGroupsByYear } from '@/lib/queries';
+import { queryGroupsByYear, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Reordering group', { year, groupId, direction });
 
-    const groups = queryGroupsByYear(year);
+    const groups = queryGroupsByYear(tenantId, year);
     const currentIndex = groups.findIndex(g => g.id === groupId);
 
     if (currentIndex === -1) {
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     reordered[newIndex] = temp;
 
     for (let i = 0; i < reordered.length; i++) {
-      reorderGroup(reordered[i].id, i);
+      reorderGroup(tenantId, reordered[i].id, i);
     }
 
     log(TAG, 'Group reordered successfully', { groupId, direction });

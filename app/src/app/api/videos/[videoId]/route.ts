@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { updateVideoMetadata } from '@/lib/commands';
+import { resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -17,14 +18,15 @@ export async function PUT(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { text, title } = await request.json();
 
-    const updated = updateVideoMetadata(videoId, {
+    const updated = updateVideoMetadata(tenantId, videoId, {
       text: text !== undefined ? text : undefined,
       title: title !== undefined ? title : undefined,
     });

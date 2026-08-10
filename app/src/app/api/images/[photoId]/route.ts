@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
+import { resolveSessionTenant } from '@/lib/queries';
+import { tenantImagesDir } from '@/lib/tenants';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
-
-const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
 
 export async function GET(
   request: NextRequest,
@@ -25,13 +25,21 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Resolve the session's tenant — images are only served from that
+    // tenant's own folder
+    const tenantId = resolveSessionTenant(session);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // Validate UUID format
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(photoId)) {
       log(TAG, 'Invalid photoId format', { photoId });
       return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });
     }
 
-    const imagePath = join(DATA_DIR, 'images', `${photoId}.jpg`);
+    const imagePath = join(tenantImagesDir(tenantId), `${photoId}.jpg`);
 
     try {
       const imageBuffer = await fs.readFile(imagePath);

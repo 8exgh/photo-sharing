@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { rotatePhoto } from '@/lib/commands';
+import { resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -17,12 +18,13 @@ export async function POST(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const rotated = await rotatePhoto(photoId);
+    const rotated = await rotatePhoto(tenantId, photoId);
     if (!rotated) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 });
     }

@@ -1,39 +1,33 @@
 import type { Locator, Page } from '@playwright/test';
 
-// /admin/login renders in two modes: normal login, or first-run "claim" mode
-// when no admin password has been set yet.
 export class AdminLoginPage {
   readonly loginHeading: Locator;
-  readonly setupHeading: Locator;
-  readonly defaultPasswordInput: Locator;
+  readonly usernameInput: Locator;
   readonly passwordInput: Locator;
-  readonly confirmPasswordInput: Locator;
   readonly submitButton: Locator;
   readonly errorBanner: Locator;
+  readonly registerLink: Locator;
+  readonly verifiedBanner: Locator;
+  readonly invalidLinkBanner: Locator;
 
   constructor(readonly page: Page) {
     this.loginHeading = page.getByRole('heading', { name: 'Admin Login' });
-    this.setupHeading = page.getByRole('heading', { name: 'Set Admin Password' });
-    this.defaultPasswordInput = page.locator('#defaultPassword');
+    this.usernameInput = page.locator('#username');
     this.passwordInput = page.locator('#password');
-    this.confirmPasswordInput = page.locator('#confirmPassword');
-    this.submitButton = page.getByRole('button', { name: /Sign in|Set password/ });
+    this.submitButton = page.getByRole('button', { name: 'Sign in' });
     this.errorBanner = page.locator('.bg-red-900');
+    this.registerLink = page.getByRole('link', { name: 'Register' });
+    this.verifiedBanner = page.getByText('Email verified — your account is active');
+    this.invalidLinkBanner = page.getByText('verification link is invalid');
   }
 
   async goto() {
     await this.page.goto('/admin/login');
   }
 
-  async login(password: string) {
+  async login(username: string, password: string) {
+    await this.usernameInput.fill(username);
     await this.passwordInput.fill(password);
-    await this.submitButton.click();
-  }
-
-  async claim(defaultPassword: string, newPassword: string) {
-    await this.defaultPasswordInput.fill(defaultPassword);
-    await this.passwordInput.fill(newPassword);
-    await this.confirmPasswordInput.fill(newPassword);
     await this.submitButton.click();
   }
 }

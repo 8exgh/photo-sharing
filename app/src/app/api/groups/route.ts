@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/session';
 import { createGroup } from '@/lib/commands';
-import { queryGroupsByYear, queryIsValidAccessKey } from '@/lib/queries';
+import { queryGroupsByYear, resolveAdminTenant, resolveSessionTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
@@ -15,13 +15,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // For non-admin users, validate their access key
-  if (!sessionData.isAdmin && sessionData.accessKey) {
-    const keyIsValid = queryIsValidAccessKey(sessionData.accessKey);
-    if (!keyIsValid) {
-      log(TAG, 'Access key no longer valid');
-      return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
-    }
+  // Resolve the session's tenant (validates the access key for visitors)
+  const tenantId = resolveSessionTenant(sessionData);
+  if (!tenantId) {
+    log(TAG, 'No valid tenant for session');
+    return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -33,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const groups = queryGroupsByYear(year);
+    const groups = queryGroupsByYear(tenantId, year);
     log(TAG, 'Groups fetched', { year, count: groups.length });
     return NextResponse.json(
       { groups },
@@ -56,7 +54,8 @@ export async function POST(request: NextRequest) {
   logRequest(TAG, request, { msg: 'Create group request' });
 
   const sessionData = await validateSession(request);
-  if (!sessionData.isAdmin) {
+  const tenantId = resolveAdminTenant(sessionData);
+  if (!tenantId) {
     log(TAG, 'Unauthorized');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -72,8 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { groupId } = createGroup({ year, groupName, displayName, description: description || '' });
-    const groups = queryGroupsByYear(year);
+    const { groupId } = createGroup(tenantId, { year, groupName, displayName, description: description || '' });
+    const groups = queryGroupsByYear(tenantId, year);
     const group = groups.find(g => g.id === groupId);
 
     log(TAG, 'Group created', { year, groupName, displayName });

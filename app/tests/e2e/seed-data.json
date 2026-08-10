@@ -1,6 +1,23 @@
 {
-  "adminPassword": "e2e-admin-password-123",
-  "accessKey": "e2etestkey0123456789abcdef",
+  "mainTenant": {
+    "username": "rogers-family",
+    "email": "rogers-family@example.com",
+    "password": "e2e-admin-password-123",
+    "accessKey": "rogers-family.e2etestkey0123456789"
+  },
+  "otherTenant": {
+    "username": "neighbor",
+    "email": "neighbor@example.com",
+    "password": "e2e-neighbor-password-1",
+    "accessKey": "neighbor.e2eneighborkey123456",
+    "album": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Neighbor Private Album",
+      "urlName": "neighbor-private-album",
+      "location": "Next Door",
+      "description": "Only the neighbor should see this"
+    }
+  },
   "year": "2024",
   "group": {
     "id": "mountain-trips",

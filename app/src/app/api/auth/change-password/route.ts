@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { changeAdminPassword } from '@/lib/commands';
-import { queryAdminPasswordHash } from '@/lib/queries';
+import { queryAdminPasswordHash, resolveAdminTenant } from '@/lib/queries';
 import { hashPassword, verifyPassword } from '@/lib/password';
 import { logRequest, log, logError } from '@/lib/logger';
 
@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,13 +32,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const storedHash = queryAdminPasswordHash();
+    const storedHash = queryAdminPasswordHash(tenantId);
     if (!storedHash || typeof currentPassword !== 'string' || !verifyPassword(currentPassword, storedHash)) {
       log(TAG, 'Current password incorrect');
       return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 });
     }
 
-    const changed = changeAdminPassword(hashPassword(newPassword));
+    const changed = changeAdminPassword(tenantId, hashPassword(newPassword));
     if (!changed) {
       return NextResponse.json({ error: 'No admin password set' }, { status: 409 });
     }

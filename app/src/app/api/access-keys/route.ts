@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { createAccessKey, labelAccessKey, revokeAccessKey } from '@/lib/commands';
-import { queryAllAccessKeys } from '@/lib/queries';
+import { queryAllAccessKeys, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -15,12 +15,13 @@ export async function GET(request: NextRequest) {
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const keys = queryAllAccessKeys();
+    const keys = queryAllAccessKeys(tenantId);
     log(TAG, 'Access keys fetched', { count: keys.length });
 
     return NextResponse.json({ keys });
@@ -39,7 +40,8 @@ export async function POST(request: NextRequest) {
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Creating access key', { expires, hasLabel: !!label });
 
-    const key = createAccessKey(expires, label);
+    const key = createAccessKey(tenantId, expires, label);
     log(TAG, 'Access key created', { keyPrefix: key.substring(0, 8) + '...' });
 
     return NextResponse.json({ key });
@@ -73,7 +75,8 @@ export async function PATCH(request: NextRequest) {
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -92,7 +95,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     log(TAG, 'Labeling access key', { keyPrefix: key.substring(0, 8) + '...' });
-    const labeled = labelAccessKey(key, label);
+    const labeled = labelAccessKey(tenantId, key, label);
 
     if (!labeled) {
       log(TAG, 'Key not found');
@@ -116,7 +119,8 @@ export async function DELETE(request: NextRequest) {
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session retrieved', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin });
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -130,7 +134,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     log(TAG, 'Deleting access key', { keyPrefix: key.substring(0, 8) + '...' });
-    const deleted = revokeAccessKey(key);
+    const deleted = revokeAccessKey(tenantId, key);
 
     if (!deleted) {
       log(TAG, 'Key not found');

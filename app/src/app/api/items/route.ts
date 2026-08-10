@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { queryUnifiedYearItems, queryIsValidAccessKey } from '@/lib/queries';
+import { queryUnifiedYearItems, resolveSessionTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -18,19 +18,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Validate access key for non-admin sessions
-    if (!session.isAdmin && session.accessKey) {
-      const keyIsValid = queryIsValidAccessKey(session.accessKey);
-      if (!keyIsValid) {
-        log(TAG, 'Access key no longer valid');
-        session.isAuthenticated = false;
-        session.accessKey = undefined;
-        await session.save();
-        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
-        });
-      }
+    // Resolve the session's tenant (validates the access key for visitors)
+    const tenantId = resolveSessionTenant(session);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session');
+      session.isAuthenticated = false;
+      session.accessKey = undefined;
+      await session.save();
+      return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+      });
     }
 
     const { searchParams } = new URL(request.url);
@@ -41,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Year parameter is required' }, { status: 400 });
     }
 
-    const items = queryUnifiedYearItems(year);
+    const items = queryUnifiedYearItems(tenantId, year);
     log(TAG, 'Items fetched', { year, count: items.length });
 
     return NextResponse.json(

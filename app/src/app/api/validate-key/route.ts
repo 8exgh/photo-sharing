@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryIsValidAccessKey } from '@/lib/queries';
+import { queryTenantForAccessKey } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Key is required' }, { status: 400 });
     }
 
-    const isValid = queryIsValidAccessKey(key);
+    const isValid = queryTenantForAccessKey(key) !== null;
     log(TAG, 'Key validation result', { valid: isValid, keyPrefix: key.substring(0, 8) + '...' });
 
     if (isValid) {

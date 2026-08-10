@@ -9,15 +9,21 @@ import {
   AlbumDetailPage,
   AlbumsPage,
   HomePage,
+  RegisterPage,
 } from './pages';
 
 export { expect, seed };
 
 // Log in through the API — page.request shares the browser context's cookie
 // jar, so the session cookie applies to subsequent page navigations.
-export async function loginAsAdmin(page: Page) {
+// Defaults to the seeded main tenant.
+export async function loginAsAdmin(
+  page: Page,
+  username: string = seed.mainTenant.username,
+  password: string = seed.mainTenant.password
+) {
   const response = await page.request.post('/api/auth/login', {
-    data: { password: seed.adminPassword },
+    data: { username, password },
   });
   expect(response.ok()).toBeTruthy();
 }
@@ -28,9 +34,15 @@ export function uniqueName(prefix: string): string {
   return `${prefix} ${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
+// Valid tenant username with a unique suffix, for registration tests.
+export function uniqueUsername(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
 type PageObjects = {
   homePage: HomePage;
   adminLoginPage: AdminLoginPage;
+  registerPage: RegisterPage;
   adminDashboardPage: AdminDashboardPage;
   adminGroupsPage: AdminGroupsPage;
   adminAlbumPage: AdminAlbumPage;
@@ -42,6 +54,7 @@ type PageObjects = {
 export const test = base.extend<PageObjects>({
   homePage: async ({ page }, use) => use(new HomePage(page)),
   adminLoginPage: async ({ page }, use) => use(new AdminLoginPage(page)),
+  registerPage: async ({ page }, use) => use(new RegisterPage(page)),
   adminDashboardPage: async ({ page }, use) => use(new AdminDashboardPage(page)),
   adminGroupsPage: async ({ page }, use) => use(new AdminGroupsPage(page)),
   adminAlbumPage: async ({ page }, use) => use(new AdminAlbumPage(page)),

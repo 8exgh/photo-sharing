@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { createAlbum } from '@/lib/commands';
-import { queryAllYears, queryAlbumsWithGroupsByYear, queryIsValidAccessKey } from '@/lib/queries';
+import { queryAllYears, queryAlbumsWithGroupsByYear, resolveAdminTenant, resolveSessionTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -39,28 +39,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Validate access key for non-admin sessions
-    if (!session.isAdmin && session.accessKey) {
-      log(TAG, 'Validating access key for non-admin session');
-      const keyIsValid = queryIsValidAccessKey(session.accessKey);
-
-      if (!keyIsValid) {
-        log(TAG, 'Access key invalid, clearing session');
-        session.isAuthenticated = false;
-        session.accessKey = undefined;
-        await session.save();
-        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
-        });
-      }
+    // Resolve the session's tenant (validates the access key for visitors)
+    const tenantId = resolveSessionTenant(session);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session, clearing session');
+      session.isAuthenticated = false;
+      session.accessKey = undefined;
+      await session.save();
+      return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const year = searchParams.get('year');
 
     if (year) {
-      const albums = queryAlbumsWithGroupsByYear(year);
+      const albums = queryAlbumsWithGroupsByYear(tenantId, year);
       log(TAG, 'Fetched albums for year', { year, count: albums.length });
       return NextResponse.json(
         { albums },
@@ -73,7 +69,7 @@ export async function GET(request: NextRequest) {
         }
       );
     } else {
-      const years = queryAllYears();
+      const years = queryAllYears(tenantId);
       log(TAG, 'Fetched all years', { count: years.length });
       return NextResponse.json(
         { years },
@@ -101,7 +97,8 @@ export async function POST(request: NextRequest) {
     const session = await getSessionFromRequest(request, response);
     log(TAG, 'Session state', { isAuth: session.isAuthenticated, isAdmin: session.isAdmin, hasKey: !!session.accessKey });
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Authorization failed - not admin');
       return NextResponse.json({
         error: 'Unauthorized',
@@ -120,7 +117,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and year are required' }, { status: 400 });
     }
 
-    const { albumId, urlName } = createAlbum({ name, year, location, description, groupId, datePrefix });
+    const { albumId, urlName } = createAlbum(tenantId, { name, year, location, description, groupId, datePrefix });
 
     log(TAG, 'Album created successfully', { albumId, urlName, year, groupId });
 

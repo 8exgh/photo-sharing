@@ -16,12 +16,20 @@ export default function Home() {
           site administrator for an access key.
         </p>
 
-        <Link
-          href="/admin/login"
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-        >
-          Admin
-        </Link>
+        <div className="flex justify-center gap-6">
+          <Link
+            href="/admin/login"
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Admin
+          </Link>
+          <Link
+            href="/register"
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            Register
+          </Link>
+        </div>
       </div>
     </div>
   );

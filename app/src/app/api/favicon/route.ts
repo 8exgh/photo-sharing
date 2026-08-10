@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { join } from 'path';
 import { promises as fs } from 'fs';
+import { getSessionFromRequest } from '@/lib/session';
+import { resolveSessionTenant } from '@/lib/queries';
+import { tenantBrandingDir } from '@/lib/tenants';
 import { logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
-const CUSTOM_FAVICON = join(DATA_DIR, 'branding', 'favicon.png');
 const PLACEHOLDER_FAVICON = join(process.cwd(), 'public', 'favicon.png');
 
 async function serveFavicon(request: NextRequest, path: string) {
@@ -30,10 +31,16 @@ async function serveFavicon(request: NextRequest, path: string) {
 export async function GET(request: NextRequest) {
   const TAG = 'GET /api/favicon';
   try {
+    // Serve the session tenant's custom favicon when there is one
     try {
-      return await serveFavicon(request, CUSTOM_FAVICON);
+      const response = new NextResponse();
+      const session = await getSessionFromRequest(request, response);
+      const tenantId = resolveSessionTenant(session);
+      if (tenantId) {
+        return await serveFavicon(request, join(tenantBrandingDir(tenantId), 'favicon.png'));
+      }
     } catch {
-      // No custom logo uploaded - fall back to the bundled placeholder
+      // No session or no custom favicon - fall through to the placeholder
     }
     return await serveFavicon(request, PLACEHOLDER_FAVICON);
   } catch (error) {

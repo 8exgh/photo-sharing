@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { moveAlbumToGroup } from '@/lib/commands';
+import { resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -13,7 +14,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     log(TAG, 'Moving album', { albumId, groupId });
-    const moved = moveAlbumToGroup(albumId, groupId || null);
+    const moved = moveAlbumToGroup(tenantId, albumId, groupId || null);
 
     if (!moved) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });

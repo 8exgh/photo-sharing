@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { reorderAlbum } from '@/lib/commands';
-import { queryAlbumsWithGroupsByYear } from '@/lib/queries';
+import { queryAlbumsWithGroupsByYear, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     log(TAG, 'Reordering album', { year, albumId, direction, groupId });
 
-    const allAlbums = queryAlbumsWithGroupsByYear(year);
+    const allAlbums = queryAlbumsWithGroupsByYear(tenantId, year);
 
     // Filter albums based on context
     const contextAlbums = groupId
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     reordered[newIndex] = temp;
 
     for (let i = 0; i < reordered.length; i++) {
-      reorderAlbum(reordered[i].albumId, i);
+      reorderAlbum(tenantId, reordered[i].albumId, i);
     }
 
     log(TAG, 'Album reordered successfully', { albumId, direction });

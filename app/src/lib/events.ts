@@ -7,6 +7,29 @@ export interface AdminPasswordSet {
   created: string;
 }
 
+export interface TenantRegistered {
+  type: 'tenant_registered';
+  version: 1;
+  email: string;
+  verificationToken: string;
+  created: string;
+}
+
+export interface EmailVerified {
+  type: 'email_verified';
+  version: 1;
+  verified: string;
+}
+
+// Recorded by the background processor once the verification email for a
+// given token has gone out — the pending-email query keys off this.
+export interface VerificationEmailSent {
+  type: 'verification_email_sent';
+  version: 1;
+  token: string;
+  sent: string;
+}
+
 export interface AccessKeyCreated {
   type: 'access_key_created';
   version: 1;
@@ -195,6 +218,9 @@ export interface GroupReordered {
 
 export type DomainEvent =
   | AdminPasswordSet
+  | TenantRegistered
+  | EmailVerified
+  | VerificationEmailSent
   | AccessKeyCreated
   | AccessKeyLabeled
   | AccessKeyRevoked

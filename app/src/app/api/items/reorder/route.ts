@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { reorderAlbum, reorderGroup } from '@/lib/commands';
-import { queryUnifiedYearItems } from '@/lib/queries';
+import { queryUnifiedYearItems, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid parameters' }, { status: 400 });
     }
 
-    const items = queryUnifiedYearItems(year);
+    const items = queryUnifiedYearItems(tenantId, year);
 
     log(TAG, 'Reordering item', { year, itemId, itemType, direction });
 
@@ -55,9 +56,9 @@ export async function POST(request: NextRequest) {
       const item = reordered[i];
 
       if (item.type === 'group' && item.group) {
-        reorderGroup(item.group.id, i);
+        reorderGroup(tenantId, item.group.id, i);
       } else if (item.type === 'album' && item.album) {
-        reorderAlbum(item.album.albumId, i);
+        reorderAlbum(tenantId, item.album.albumId, i);
       }
     }
 

@@ -3,14 +3,12 @@ import { join } from 'path';
 import { promises as fs } from 'fs';
 import sharp from 'sharp';
 import { getSessionFromRequest } from '@/lib/session';
+import { resolveAdminTenant, resolveSessionTenant } from '@/lib/queries';
+import { tenantBrandingDir } from '@/lib/tenants';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
-const BRANDING_DIR = join(DATA_DIR, 'branding');
-const CUSTOM_LOGO = join(BRANDING_DIR, 'logo.png');
-const CUSTOM_FAVICON = join(BRANDING_DIR, 'favicon.png');
 const PLACEHOLDER_LOGO = join(process.cwd(), 'public', 'logo.png');
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -37,10 +35,17 @@ async function serveLogo(request: NextRequest, path: string, contentType: string
 export async function GET(request: NextRequest) {
   const TAG = 'GET /api/logo';
   try {
+    // Serve the session tenant's custom logo when there is one; anonymous
+    // visitors and tenants without a custom logo get the placeholder.
     try {
-      return await serveLogo(request, CUSTOM_LOGO, 'image/png');
+      const response = new NextResponse();
+      const session = await getSessionFromRequest(request, response);
+      const tenantId = resolveSessionTenant(session);
+      if (tenantId) {
+        return await serveLogo(request, join(tenantBrandingDir(tenantId), 'logo.png'), 'image/png');
+      }
     } catch {
-      // No custom logo uploaded - fall back to the bundled placeholder
+      // No session or no custom logo - fall through to the placeholder
     }
     return await serveLogo(request, PLACEHOLDER_LOGO, 'image/png');
   } catch (error) {
@@ -57,7 +62,8 @@ export async function POST(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -87,11 +93,12 @@ export async function POST(request: NextRequest) {
       .png()
       .toBuffer();
 
-    await fs.mkdir(BRANDING_DIR, { recursive: true });
-    await fs.writeFile(CUSTOM_LOGO, png);
-    await fs.writeFile(CUSTOM_FAVICON, favicon);
+    const brandingDir = tenantBrandingDir(tenantId);
+    await fs.mkdir(brandingDir, { recursive: true });
+    await fs.writeFile(join(brandingDir, 'logo.png'), png);
+    await fs.writeFile(join(brandingDir, 'favicon.png'), favicon);
 
-    log(TAG, 'Logo uploaded successfully', { size: png.length });
+    log(TAG, 'Logo uploaded successfully', { tenantId, size: png.length });
     return NextResponse.json({ success: true });
   } catch (error) {
     logError(TAG, 'Error uploading logo', error);
@@ -107,20 +114,22 @@ export async function DELETE(request: NextRequest) {
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized - not admin');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    for (const path of [CUSTOM_LOGO, CUSTOM_FAVICON]) {
+    const brandingDir = tenantBrandingDir(tenantId);
+    for (const name of ['logo.png', 'favicon.png']) {
       try {
-        await fs.unlink(path);
+        await fs.unlink(join(brandingDir, name));
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
     }
 
-    log(TAG, 'Logo reverted to default');
+    log(TAG, 'Logo reverted to default', { tenantId });
     return NextResponse.json({ success: true });
   } catch (error) {
     logError(TAG, 'Error reverting logo', error);

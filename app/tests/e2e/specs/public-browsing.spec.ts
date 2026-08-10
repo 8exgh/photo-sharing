@@ -2,7 +2,7 @@ import { expect, seed, test } from '../fixtures';
 
 test.describe('Public album browsing', () => {
   test.beforeEach(async ({ albumsPage }) => {
-    await albumsPage.gotoWithKey(seed.accessKey);
+    await albumsPage.gotoWithKey(seed.mainTenant.accessKey);
     await expect(albumsPage.heading).toBeVisible();
   });
 

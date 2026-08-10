@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { movePhoto } from '@/lib/commands';
-import { queryAlbumByYearAndUrlName } from '@/lib/queries';
+import { queryAlbumByYearAndUrlName, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -18,7 +18,8 @@ export async function POST(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -28,7 +29,7 @@ export async function POST(
     // Support both albumId directly or year+urlName lookup
     let toAlbumId = targetAlbumId;
     if (!toAlbumId && targetYear && targetAlbum) {
-      const album = queryAlbumByYearAndUrlName(targetYear, targetAlbum);
+      const album = queryAlbumByYearAndUrlName(tenantId, targetYear, targetAlbum);
       if (!album) {
         return NextResponse.json({ error: 'Target album not found' }, { status: 404 });
       }
@@ -39,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: 'Target album is required' }, { status: 400 });
     }
 
-    const moved = movePhoto(photoId, toAlbumId);
+    const moved = movePhoto(tenantId, photoId, toAlbumId);
     if (!moved) {
       return NextResponse.json({ error: 'Photo not found or already in target album' }, { status: 404 });
     }

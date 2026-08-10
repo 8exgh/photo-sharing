@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { queryAdminPasswordHash } from '@/lib/queries';
+import { queryTenantAuth } from '@/lib/queries';
 import { verifyPassword } from '@/lib/password';
+import { isValidTenantId, tenantExists } from '@/lib/tenants';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -11,24 +12,35 @@ export async function POST(request: NextRequest) {
   try {
     logRequest(TAG, request, { msg: 'Login attempt' });
 
-    const { password } = await request.json();
+    const { username, password } = await request.json();
 
-    const storedHash = queryAdminPasswordHash();
-    if (!storedHash) {
-      log(TAG, 'No admin password set - setup required');
-      return NextResponse.json({ error: 'Admin password has not been set yet', needsSetup: true }, { status: 409 });
+    if (!isValidTenantId(username) || !tenantExists(username)) {
+      logRequest(TAG, request, { msg: 'Unknown username', username: String(username).slice(0, 40) });
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
     }
 
-    if (typeof password === 'string' && verifyPassword(password, storedHash)) {
-      log(TAG, 'Password correct, creating admin session');
+    const auth = queryTenantAuth(username);
+    const storedHash = auth.adminPasswordHash;
+
+    if (storedHash && typeof password === 'string' && verifyPassword(password, storedHash)) {
+      if (!auth.emailVerified) {
+        log(TAG, 'Login rejected - email not verified', { username });
+        return NextResponse.json(
+          { error: 'Please verify your email first — check your inbox for the verification link' },
+          { status: 403 }
+        );
+      }
+
+      log(TAG, 'Password correct, creating admin session', { username });
 
       const response = new NextResponse();
       const session = await getSessionFromRequest(request, response);
       session.isAuthenticated = true;
       session.isAdmin = true;
+      session.tenantId = username;
       await session.save();
 
-      log(TAG, 'Admin session created successfully', { isAuthenticated: true, isAdmin: true });
+      log(TAG, 'Admin session created successfully', { username });
 
       // Return with session cookie headers
       return new NextResponse(JSON.stringify({ success: true }), {
@@ -37,8 +49,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    logRequest(TAG, request, { msg: 'Invalid password attempt' });
-    return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+    logRequest(TAG, request, { msg: 'Invalid password attempt', username });
+    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
   } catch (error) {
     logError(TAG, 'Login error', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

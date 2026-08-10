@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { uploadPhoto } from '@/lib/commands';
-import { queryAlbumByYearAndUrlName } from '@/lib/queries';
+import { queryAlbumByYearAndUrlName, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -18,12 +18,13 @@ export async function POST(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const albumData = queryAlbumByYearAndUrlName(year, album);
+    const albumData = queryAlbumByYearAndUrlName(tenantId, year, album);
     if (!albumData) {
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
@@ -39,7 +40,7 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
-    const { photoId } = await uploadPhoto(albumData.albumId, file);
+    const { photoId } = await uploadPhoto(tenantId, albumData.albumId, file);
 
     log(TAG, 'Photo uploaded successfully', { year, album, photoId });
 

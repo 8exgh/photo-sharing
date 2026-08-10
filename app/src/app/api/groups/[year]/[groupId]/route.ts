@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateSession } from '@/lib/session';
 import { updateGroup, deleteGroup } from '@/lib/commands';
-import { queryGroupByYearAndId, queryIsValidAccessKey } from '@/lib/queries';
+import { queryGroupByYearAndId, resolveAdminTenant, resolveSessionTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export async function GET(
@@ -20,16 +20,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // For non-admin users, validate their access key
-    if (!sessionData.isAdmin && sessionData.accessKey) {
-      const keyIsValid = queryIsValidAccessKey(sessionData.accessKey);
-      if (!keyIsValid) {
-        log(TAG, 'Access key no longer valid');
-        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
-      }
+    // Resolve the session's tenant (validates the access key for visitors)
+    const tenantId = resolveSessionTenant(sessionData);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session');
+      return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
     }
 
-    const group = queryGroupByYearAndId(year, groupId);
+    const group = queryGroupByYearAndId(tenantId, year, groupId);
 
     if (!group) {
       log(TAG, 'Group not found', { year, groupId });
@@ -54,21 +52,22 @@ export async function PUT(
     logRequest(TAG, request, { msg: 'Update group request', year, groupId });
 
     const sessionData = await validateSession(request);
-    if (!sessionData.isAdmin) {
+    const tenantId = resolveAdminTenant(sessionData);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { displayName, description } = await request.json();
 
-    const updated = updateGroup(groupId, { displayName, description });
+    const updated = updateGroup(tenantId, groupId, { displayName, description });
 
     if (!updated) {
       log(TAG, 'Group not found', { year, groupId });
       return NextResponse.json({ error: 'Group not found' }, { status: 404 });
     }
 
-    const group = queryGroupByYearAndId(year, groupId);
+    const group = queryGroupByYearAndId(tenantId, year, groupId);
     log(TAG, 'Group updated', { year, groupId });
     return NextResponse.json({ group });
   } catch (error) {
@@ -87,13 +86,14 @@ export async function DELETE(
     logRequest(TAG, request, { msg: 'Delete group request', year, groupId });
 
     const sessionData = await validateSession(request);
-    if (!sessionData.isAdmin) {
+    const tenantId = resolveAdminTenant(sessionData);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     log(TAG, 'Deleting group', { year, groupId });
-    const deleted = deleteGroup(groupId);
+    const deleted = deleteGroup(tenantId, groupId);
 
     if (!deleted) {
       log(TAG, 'Group not found', { year, groupId });

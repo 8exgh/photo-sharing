@@ -3,17 +3,23 @@ import { expect, seed, test } from '../fixtures';
 test.describe('Admin authentication', () => {
   test('rejects a wrong password', async ({ adminLoginPage }) => {
     await adminLoginPage.goto();
-    await adminLoginPage.login('definitely-not-the-password');
-    await expect(adminLoginPage.errorBanner).toContainText('Invalid password');
+    await adminLoginPage.login(seed.mainTenant.username, 'definitely-not-the-password');
+    await expect(adminLoginPage.errorBanner).toContainText('Invalid username or password');
   });
 
-  test('logs in with the correct password and reaches the dashboard', async ({
+  test('rejects an unknown username', async ({ adminLoginPage }) => {
+    await adminLoginPage.goto();
+    await adminLoginPage.login('no-such-tenant', seed.mainTenant.password);
+    await expect(adminLoginPage.errorBanner).toContainText('Invalid username or password');
+  });
+
+  test('logs in with the correct credentials and reaches the dashboard', async ({
     adminLoginPage,
     adminDashboardPage,
     page,
   }) => {
     await adminLoginPage.goto();
-    await adminLoginPage.login(seed.adminPassword);
+    await adminLoginPage.login(seed.mainTenant.username, seed.mainTenant.password);
     await expect(page).toHaveURL(/\/admin$/);
     await expect(adminDashboardPage.heading).toBeVisible();
   });
@@ -29,7 +35,7 @@ test.describe('Admin authentication', () => {
 
   test('logout ends the admin session', async ({ adminLoginPage, adminDashboardPage, page }) => {
     await adminLoginPage.goto();
-    await adminLoginPage.login(seed.adminPassword);
+    await adminLoginPage.login(seed.mainTenant.username, seed.mainTenant.password);
     await expect(adminDashboardPage.heading).toBeVisible();
 
     await adminDashboardPage.logoutButton.click();

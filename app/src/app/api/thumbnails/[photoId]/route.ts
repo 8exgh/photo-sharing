@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
-import { queryIsValidAccessKey } from '@/lib/queries';
+import { resolveSessionTenant } from '@/lib/queries';
+import { tenantThumbnailsDir } from '@/lib/tenants';
 import { promises as fs } from 'fs';
 import { join } from 'path';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
-
-const DATA_DIR = join(process.cwd(), process.env.DATA_DIR || 'data');
 
 export async function GET(
   request: NextRequest,
@@ -26,16 +25,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Validate access key for non-admin sessions
-    if (!session.isAdmin && session.accessKey) {
-      const keyIsValid = queryIsValidAccessKey(session.accessKey);
-      if (!keyIsValid) {
-        log(TAG, 'Access key no longer valid');
-        session.isAuthenticated = false;
-        session.accessKey = undefined;
-        await session.save();
-        return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
-      }
+    // Resolve the session's tenant (validates the access key for visitors) —
+    // thumbnails are only served from that tenant's own folder
+    const tenantId = resolveSessionTenant(session);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session');
+      session.isAuthenticated = false;
+      session.accessKey = undefined;
+      await session.save();
+      return NextResponse.json({ error: 'Access key is no longer valid' }, { status: 401 });
     }
 
     // Validate UUID format
@@ -44,7 +42,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid photo ID' }, { status: 400 });
     }
 
-    const thumbnailPath = join(DATA_DIR, 'thumbnails', `${photoId}.jpg`);
+    const thumbnailPath = join(tenantThumbnailsDir(tenantId), `${photoId}.jpg`);
 
     try {
       const imageBuffer = await fs.readFile(thumbnailPath);

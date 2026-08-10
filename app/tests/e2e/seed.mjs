@@ -1,8 +1,11 @@
 // Prepares the data directory for an e2e test server before `next start`.
 //
-//   node tests/e2e/seed.mjs fresh   — wipe the data dir (unclaimed first-run state)
-//   node tests/e2e/seed.mjs seeded  — wipe, then seed a claimed admin password,
-//                                     an access key, a group, albums and a video
+//   node tests/e2e/seed.mjs fresh   — wipe the data dir (no tenants; used by
+//                                     the registration specs)
+//   node tests/e2e/seed.mjs seeded  — wipe, then seed two verified tenants:
+//                                     the main tenant with albums, a group, a
+//                                     video and an access key, plus a second
+//                                     "neighbor" tenant for isolation tests
 //
 // Events are inserted in the same shape appendEvent() writes them so the
 // projection in src/lib/projection.ts replays them exactly like real data.
@@ -24,14 +27,14 @@ if (mode !== 'fresh' && mode !== 'seeded') {
 // next.config.ts inlines DATA_DIR at build time, so the server always uses
 // <cwd>/data. Each test server is started from .e2e-data/<mode> to isolate
 // its data; seed into the matching directory here.
-const serverCwd = resolve(join(here, '..', '..'), `.e2e-data/${mode}`);
+const appRoot = join(here, '..', '..');
+const serverCwd = resolve(appRoot, `.e2e-data/${mode}`);
 const dataDir = join(serverCwd, 'data');
 
 rmSync(serverCwd, { recursive: true, force: true });
 mkdirSync(dataDir, { recursive: true });
 
 // The logo/favicon fallbacks also resolve ./public relative to the server cwd
-const appRoot = join(here, '..', '..');
 mkdirSync(join(serverCwd, 'public'), { recursive: true });
 for (const asset of ['logo.png', 'favicon.png']) {
   copyFileSync(join(appRoot, 'public', asset), join(serverCwd, 'public', asset));
@@ -41,17 +44,6 @@ if (mode === 'fresh') {
   console.log(`[seed] fresh: cleared ${dataDir}`);
   process.exit(0);
 }
-const db = new Database(join(dataDir, 'events.db'));
-db.pragma('journal_mode = WAL');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS events (
-    sequence_number INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_type TEXT NOT NULL,
-    event_version INTEGER NOT NULL DEFAULT 1,
-    payload TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-`);
 
 // Same format as src/lib/password.ts
 function hashPassword(password) {
@@ -61,27 +53,58 @@ function hashPassword(password) {
 }
 
 const now = new Date().toISOString();
-const insert = db.prepare(
-  'INSERT INTO events (event_type, event_version, payload) VALUES (?, ?, ?)'
-);
-const append = (event) => insert.run(event.type, event.version, JSON.stringify(event));
 
-append({
-  type: 'admin_password_set',
-  version: 1,
-  hash: hashPassword(seed.adminPassword),
-  created: now,
-});
+function createTenant(tenant) {
+  const tenantDir = join(dataDir, 'tenants', tenant.username);
+  mkdirSync(join(tenantDir, 'images'), { recursive: true });
+  mkdirSync(join(tenantDir, 'thumbnails'), { recursive: true });
 
-append({
-  type: 'access_key_created',
-  version: 1,
-  key: seed.accessKey,
-  created: now,
-  label: 'Seeded e2e key',
-});
+  const db = new Database(join(tenantDir, 'events.db'));
+  db.pragma('journal_mode = WAL');
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS events (
+      sequence_number INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type TEXT NOT NULL,
+      event_version INTEGER NOT NULL DEFAULT 1,
+      payload TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
 
-append({
+  const insert = db.prepare(
+    'INSERT INTO events (event_type, event_version, payload) VALUES (?, ?, ?)'
+  );
+  const append = (event) => insert.run(event.type, event.version, JSON.stringify(event));
+
+  append({
+    type: 'admin_password_set',
+    version: 1,
+    hash: hashPassword(tenant.password),
+    created: now,
+  });
+  append({
+    type: 'tenant_registered',
+    version: 1,
+    email: tenant.email,
+    verificationToken: randomBytes(32).toString('hex'),
+    created: now,
+  });
+  append({ type: 'email_verified', version: 1, verified: now });
+  append({
+    type: 'access_key_created',
+    version: 1,
+    key: tenant.accessKey,
+    created: now,
+    label: 'Seeded e2e key',
+  });
+
+  return { db, append };
+}
+
+// --- Main tenant: albums, group, video ---
+const main = createTenant(seed.mainTenant);
+
+main.append({
   type: 'group_created',
   version: 1,
   groupId: seed.group.id,
@@ -92,7 +115,7 @@ append({
   created: now,
 });
 
-append({
+main.append({
   type: 'album_created',
   version: 1,
   albumId: seed.ungroupedAlbum.id,
@@ -107,7 +130,7 @@ append({
   created: now,
 });
 
-append({
+main.append({
   type: 'album_created',
   version: 1,
   albumId: seed.groupedAlbum.id,
@@ -122,7 +145,7 @@ append({
   created: now,
 });
 
-append({
+main.append({
   type: 'video_added',
   version: 1,
   videoId: seed.video.id,
@@ -132,5 +155,26 @@ append({
   addedDate: now,
 });
 
-db.close();
-console.log(`[seed] seeded: ${dataDir}`);
+main.db.close();
+
+// --- Other tenant: one album, used to prove cross-tenant isolation ---
+const other = createTenant(seed.otherTenant);
+
+other.append({
+  type: 'album_created',
+  version: 1,
+  albumId: seed.otherTenant.album.id,
+  name: seed.otherTenant.album.name,
+  urlName: seed.otherTenant.album.urlName,
+  year: seed.year,
+  location: seed.otherTenant.album.location,
+  description: seed.otherTenant.album.description,
+  text: '',
+  groupId: null,
+  displayOrder: 0,
+  created: now,
+});
+
+other.db.close();
+
+console.log(`[seed] seeded two tenants in ${dataDir}`);

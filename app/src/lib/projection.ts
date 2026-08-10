@@ -48,15 +48,22 @@ export interface GroupState {
 
 export interface ReadModel {
   adminPasswordHash?: string;
+  email?: string;
+  emailVerified: boolean;
+  verificationToken?: string;
+  // Token of the most recent verification email actually sent; the pending
+  // work query compares this against verificationToken
+  verificationEmailSentToken?: string;
   accessKeys: Map<string, { key: string; created: string; expires?: string; label?: string }>;
   albums: Map<string, AlbumState>;
   groups: Map<string, GroupState>;
 }
 
-export function buildReadModel(): ReadModel {
-  const events = getAllEvents();
+export function buildReadModel(tenantId: string): ReadModel {
+  const events = getAllEvents(tenantId);
 
   const model: ReadModel = {
+    emailVerified: false,
     accessKeys: new Map(),
     albums: new Map(),
     groups: new Map(),
@@ -73,6 +80,23 @@ export function buildReadModel(): ReadModel {
       // --- Admin Password ---
       case 'admin_password_set': {
         model.adminPasswordHash = event.hash;
+        break;
+      }
+
+      // --- Tenant registration ---
+      case 'tenant_registered': {
+        // A re-registration of an unverified tenant resets the pending state
+        model.email = event.email;
+        model.verificationToken = event.verificationToken;
+        model.emailVerified = false;
+        break;
+      }
+      case 'email_verified': {
+        model.emailVerified = true;
+        break;
+      }
+      case 'verification_email_sent': {
+        model.verificationEmailSentToken = event.token;
         break;
       }
 

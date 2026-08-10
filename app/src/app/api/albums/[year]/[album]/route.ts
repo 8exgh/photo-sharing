@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { updateAlbumMetadata, renameAlbumUrl, changeAlbumYear } from '@/lib/commands';
-import { queryAlbumByYearAndUrlName, queryIsValidAccessKey } from '@/lib/queries';
+import { queryAlbumByYearAndUrlName, resolveAdminTenant, resolveSessionTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -23,22 +23,20 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Validate access key for non-admin sessions
-    if (!session.isAdmin && session.accessKey) {
-      const keyIsValid = queryIsValidAccessKey(session.accessKey);
-      if (!keyIsValid) {
-        log(TAG, 'Access key invalid, clearing session');
-        session.isAuthenticated = false;
-        session.accessKey = undefined;
-        await session.save();
-        return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
-        });
-      }
+    // Resolve the session's tenant (validates the access key for visitors)
+    const tenantId = resolveSessionTenant(session);
+    if (!tenantId) {
+      log(TAG, 'No valid tenant for session, clearing session');
+      session.isAuthenticated = false;
+      session.accessKey = undefined;
+      await session.save();
+      return new NextResponse(JSON.stringify({ error: 'Access key is no longer valid' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json', ...Object.fromEntries(response.headers) }
+      });
     }
 
-    const albumData = queryAlbumByYearAndUrlName(year, album);
+    const albumData = queryAlbumByYearAndUrlName(tenantId, year, album);
 
     if (!albumData) {
       log(TAG, 'Album not found', { year, album });
@@ -89,14 +87,15 @@ export async function PUT(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized', { currentYear, album });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { name, location, description, text, year: newYear, urlName } = await request.json();
 
-    const albumData = queryAlbumByYearAndUrlName(currentYear, album);
+    const albumData = queryAlbumByYearAndUrlName(tenantId, currentYear, album);
     if (!albumData) {
       log(TAG, 'Album not found', { currentYear, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
@@ -107,7 +106,7 @@ export async function PUT(
     let urlNameChanged = false;
 
     // Update metadata
-    updateAlbumMetadata(albumId, {
+    updateAlbumMetadata(tenantId, albumId, {
       name: name || undefined,
       location: location !== undefined ? location : undefined,
       description: description !== undefined ? description : undefined,
@@ -116,13 +115,13 @@ export async function PUT(
     // Update text if provided
     if (text !== undefined) {
       const { updateAlbumText } = await import('@/lib/commands');
-      updateAlbumText(albumId, text);
+      updateAlbumText(tenantId, albumId, text);
     }
 
     // Rename URL if changed
     if (urlName && urlName !== album) {
       try {
-        renameAlbumUrl(albumId, urlName);
+        renameAlbumUrl(tenantId, albumId, urlName);
         urlNameChanged = true;
       } catch (err) {
         return NextResponse.json({
@@ -134,7 +133,7 @@ export async function PUT(
     // Change year if changed
     if (newYear && newYear !== currentYear) {
       try {
-        changeAlbumYear(albumId, newYear);
+        changeAlbumYear(tenantId, albumId, newYear);
         yearChanged = true;
       } catch (err) {
         return NextResponse.json({

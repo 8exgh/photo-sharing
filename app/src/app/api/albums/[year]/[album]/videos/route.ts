@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSessionFromRequest } from '@/lib/session';
 import { addVideo, deleteVideo } from '@/lib/commands';
-import { queryAlbumByYearAndUrlName } from '@/lib/queries';
+import { queryAlbumByYearAndUrlName, resolveAdminTenant } from '@/lib/queries';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -18,7 +18,8 @@ export async function POST(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -30,13 +31,13 @@ export async function POST(
       return NextResponse.json({ error: 'URL and title are required' }, { status: 400 });
     }
 
-    const albumData = queryAlbumByYearAndUrlName(year, album);
+    const albumData = queryAlbumByYearAndUrlName(tenantId, year, album);
     if (!albumData) {
       log(TAG, 'Album not found', { year, album });
       return NextResponse.json({ error: 'Album not found' }, { status: 404 });
     }
 
-    const { videoId } = addVideo(albumData.albumId, url, title);
+    const { videoId } = addVideo(tenantId, albumData.albumId, url, title);
 
     log(TAG, 'Video added successfully', { year, album, videoId, title });
 
@@ -63,7 +64,8 @@ export async function DELETE(
     const response = new NextResponse();
     const session = await getSessionFromRequest(request, response);
 
-    if (!session.isAdmin) {
+    const tenantId = resolveAdminTenant(session);
+    if (!tenantId) {
       log(TAG, 'Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -76,7 +78,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Video ID is required' }, { status: 400 });
     }
 
-    const deleted = deleteVideo(videoId);
+    const deleted = deleteVideo(tenantId, videoId);
     if (!deleted) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
