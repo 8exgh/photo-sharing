@@ -37,3 +37,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# playwright artifacts (accidental root runs)
+/test-results/
+/playwright-report/
