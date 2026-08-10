@@ -60,7 +60,11 @@ export default defineConfig({
       url: FRESH_BASE_URL,
       reuseExistingServer: false,
       timeout: 120_000,
-      env: serverEnv,
+      // APP_BASE_URL uses a *different host string* (localhost vs 127.0.0.1)
+      // than the browser's baseURL, emulating a reverse proxy where the
+      // request's own URL is not the public one — emailed links and verify
+      // redirects must land on APP_BASE_URL, not the request host.
+      env: { ...serverEnv, APP_BASE_URL: `http://localhost:${FRESH_PORT}` },
     },
   ],
 });

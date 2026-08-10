@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // Direct read access to the fresh server's per-tenant event stores — stands
@@ -38,4 +39,24 @@ export function countSentEmails(username: string, token: string): number {
   return readEvents(username).filter(
     (e) => e.event_type === 'verification_email_sent' && e.payload.token === token
   ).length;
+}
+
+export interface MockedEmail {
+  to: string;
+  username: string;
+  subject: string;
+  verifyUrl: string;
+  sent: string;
+}
+
+// The mocked inbox: EMAIL_DRY_RUN appends each "sent" email to outbox.jsonl
+export function readMockedEmails(): MockedEmail[] {
+  try {
+    return readFileSync(join(FRESH_DATA_DIR, 'outbox.jsonl'), 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } catch {
+    return [];
+  }
 }

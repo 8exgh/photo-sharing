@@ -1,3 +1,5 @@
+import { appendFile, mkdir } from 'fs/promises';
+import { join, resolve } from 'path';
 import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { log } from './logger';
@@ -27,8 +29,11 @@ function getFromAddress(): string {
   return `"Photo Albums" <${process.env.GMAIL_USER}>`;
 }
 
-export function getAppBaseUrl(): string {
-  return (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+// Public base URL for links and redirects. APP_BASE_URL is authoritative in
+// production (behind the reverse proxy the request's own URL reconstructs as
+// localhost); callers with a request in hand pass its origin as fallback.
+export function getAppBaseUrl(fallbackOrigin?: string): string {
+  return (process.env.APP_BASE_URL || fallbackOrigin || 'http://localhost:3000').replace(/\/$/, '');
 }
 
 export async function sendVerificationEmail(to: string, username: string, verifyUrl: string): Promise<void> {
@@ -46,7 +51,15 @@ export async function sendVerificationEmail(to: string, username: string, verify
   ].join('\n');
 
   if (process.env.EMAIL_DRY_RUN) {
-    log('Mailer', 'DRY RUN - would send verification email', { to, verifyUrl });
+    // Dev/test mode: record the email in an outbox file instead of sending.
+    // Tests read this file as their mocked inbox.
+    const dataDir = resolve(process.cwd(), process.env.DATA_DIR || 'data');
+    await mkdir(dataDir, { recursive: true });
+    await appendFile(
+      join(dataDir, 'outbox.jsonl'),
+      JSON.stringify({ to, username, subject, verifyUrl, sent: new Date().toISOString() }) + '\n'
+    );
+    log('Mailer', 'DRY RUN - verification email written to outbox', { to, verifyUrl });
     return;
   }
 

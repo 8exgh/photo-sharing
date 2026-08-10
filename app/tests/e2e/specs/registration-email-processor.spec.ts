@@ -1,5 +1,9 @@
 import { expect, test, uniqueUsername } from '../fixtures';
-import { countSentEmails, readVerificationToken } from '../fresh-db';
+import { countSentEmails, readMockedEmails, readVerificationToken } from '../fresh-db';
+
+// The fresh server's public base URL — deliberately a different host string
+// than the browser's 127.0.0.1 baseURL (see playwright.config.ts).
+const PUBLIC_BASE_URL = 'http://localhost:3101';
 
 // The email flow in mocked form: EMAIL_DRY_RUN replaces the SMTP transport,
 // and the background processor's CQRS loop is asserted through the event
@@ -22,6 +26,42 @@ test.describe('Verification email background processor', () => {
     // several more processor cycles
     await page.waitForTimeout(3_000);
     expect(countSentEmails(username, token)).toBe(1);
+  });
+
+  test('the emailed link uses the public base URL and completes verification', async ({
+    page,
+    adminLoginPage,
+    adminDashboardPage,
+  }) => {
+    const username = uniqueUsername('e2e-inbox');
+    await page.request.post('/api/auth/register', {
+      data: { username, email: `${username}@example.com`, password: 'inbox-password-1' },
+    });
+
+    // The processor "sends" the email into the outbox file (EMAIL_DRY_RUN) —
+    // that file is the mocked inbox this test reads
+    await expect
+      .poll(() => readMockedEmails().find((m) => m.username === username), { timeout: 15_000 })
+      .toBeTruthy();
+    const email = readMockedEmails().find((m) => m.username === username)!;
+    const verifyUrl = email.verifyUrl;
+
+    // The email went to the right address and its link is built on the
+    // configured public base URL, not the request host
+    expect(email.to).toBe(`${username}@example.com`);
+    expect(verifyUrl).toContain(`${PUBLIC_BASE_URL}/api/auth/verify`);
+    expect(verifyUrl).toContain(`username=${username}`);
+
+    // Open the link through the *other* host string — the server-side view
+    // behind a reverse proxy, where the request host is not the public one.
+    // The redirect must still land on APP_BASE_URL (this is the regression
+    // that sent production users to localhost:3000).
+    await page.goto(verifyUrl.replace('localhost', '127.0.0.1'));
+    await expect(page).toHaveURL(`${PUBLIC_BASE_URL}/admin/login?verified=1`);
+    await expect(adminLoginPage.verifiedBanner).toBeVisible();
+
+    await adminLoginPage.login(username, 'inbox-password-1');
+    await expect(adminDashboardPage.heading).toBeVisible();
   });
 
   test('re-registration supersedes the old token and triggers a fresh email', async ({
