@@ -131,7 +131,7 @@ export default function EditAlbum() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-800 py-8">
+      <div className="flex-1 bg-slate-800 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-slate-100">Loading...</div>
         </div>
@@ -140,7 +140,7 @@ export default function EditAlbum() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 py-8">
+    <div className="flex-1 bg-slate-800 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <Link

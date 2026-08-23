@@ -2,7 +2,7 @@ import SiteLogo from '@/components/SiteLogo';
 
 export default function AccessDenied() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-800">
+    <div className="flex-1 flex items-center justify-center bg-slate-800">
       <div className="max-w-md w-full space-y-8 text-center">
         <div>
           <SiteLogo size="large" />

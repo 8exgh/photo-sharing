@@ -510,7 +510,7 @@ export default function AlbumContentManager() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-lg text-slate-100">Loading album...</div>
       </div>
     );
@@ -518,14 +518,14 @@ export default function AlbumContentManager() {
 
   if (!album) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-red-400">{message || 'Album not found'}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-800 py-8">
+    <div className="flex-1 bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <div className="flex items-center justify-between">

@@ -254,14 +254,14 @@ function AlbumsContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-lg text-slate-300">Loading albums...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-800">
+    <div className="flex-1 bg-slate-800">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8 flex justify-between items-start gap-4">
@@ -304,7 +304,7 @@ function AlbumsContent() {
 export default function Albums() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="text-lg text-slate-300">Loading albums...</div>
       </div>
     }>

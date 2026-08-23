@@ -88,7 +88,7 @@ export default function LogViewer() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="flex-1 bg-slate-900 flex flex-col">
       {/* Header */}
       <div className="bg-slate-800 border-b border-slate-700 px-4 py-3">
         <div className="max-w-full mx-auto flex items-center justify-between">

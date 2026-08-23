@@ -188,7 +188,7 @@ export default function AlbumView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center">
         <div className="text-lg">Loading album...</div>
       </div>
     );
@@ -196,7 +196,7 @@ export default function AlbumView() {
 
   if (error || (!album && !isGroup)) {
     return (
-      <div className="min-h-screen bg-slate-800">
+      <div className="flex-1 bg-slate-800 flex flex-col">
         <div className="fixed top-0 left-0 right-0 z-50 bg-red-900 text-red-100 border-b border-red-700 shadow-lg">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center">
@@ -208,7 +208,7 @@ export default function AlbumView() {
           </div>
         </div>
 
-        <div className="pt-20 flex items-center justify-center min-h-screen">
+        <div className="pt-20 flex items-center justify-center flex-1">
           <div className="text-slate-400 text-center">
             <svg className="h-16 w-16 mx-auto mb-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.87 0-5.431 1.512-6.86 3.757l1.378.378a6.002 6.002 0 0111.964 0l1.378-.378A7.962 7.962 0 0112 15z" />
@@ -223,7 +223,7 @@ export default function AlbumView() {
   // Render group view
   if (isGroup && groupData) {
     return (
-      <div className="min-h-screen bg-slate-800 py-8">
+      <div className="flex-1 bg-slate-800 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
           <div className="mb-6">
@@ -340,7 +340,7 @@ export default function AlbumView() {
   const selectedPhotoIndex = album?.metadata.photos.findIndex(p => p.id === selectedPhotoId) ?? -1;
 
   return (
-    <div className="min-h-screen bg-slate-800 py-8">
+    <div className="flex-1 bg-slate-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex justify-between items-start gap-4">
           <div>

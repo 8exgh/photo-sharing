@@ -39,7 +39,7 @@ function AdminLoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-800">
+    <div className="flex-1 flex items-center justify-center bg-slate-800">
       <div className={`max-w-md w-full space-y-8 ${error ? 'mt-20' : ''}`}>
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-100">
@@ -128,7 +128,7 @@ export default function AdminLogin() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-800">
+        <div className="flex-1 flex items-center justify-center bg-slate-800">
           <div className="text-lg text-slate-300">Loading...</div>
         </div>
       }

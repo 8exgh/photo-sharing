@@ -46,7 +46,7 @@ export default function Register() {
 
   if (registered) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+      <div className="flex-1 flex items-center justify-center bg-slate-800">
         <div className="max-w-md w-full space-y-6 text-center">
           <h2 className="text-3xl font-extrabold text-slate-100">Check your email</h2>
           <p className="text-slate-300">
@@ -62,7 +62,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-800">
+    <div className="flex-1 flex items-center justify-center bg-slate-800">
       <div className={`max-w-md w-full space-y-8 ${error ? 'mt-20' : ''}`}>
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-100">

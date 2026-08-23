@@ -3,7 +3,7 @@ import SiteLogo from '@/components/SiteLogo';
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-800 flex items-center justify-center">
+    <div className="flex-1 bg-slate-800 flex items-center justify-center">
       <div className="max-w-md mx-auto text-center px-4">
         <SiteLogo size="large" />
 
