@@ -1,5 +1,6 @@
 import { getAllEvents } from './eventstore';
 import { DomainEvent } from './events';
+import { videoStreamUrl } from './video-files';
 
 export interface PhotoState {
   id: string;
@@ -13,6 +14,12 @@ export interface PhotoState {
   uploadDate: string;
 }
 
+export interface VideoFileInfo {
+  originalFilename: string;
+  mimeType: string;
+  fileSize: number;
+}
+
 export interface VideoState {
   id: string;
   albumId: string;
@@ -20,6 +27,8 @@ export interface VideoState {
   title: string;
   text: string;
   addedDate: string;
+  // Present for uploaded video files; absent for linked (YouTube) videos
+  file?: VideoFileInfo;
 }
 
 export interface AlbumState {
@@ -240,6 +249,27 @@ export function buildReadModel(tenantId: string): ReadModel {
             title: event.title,
             text: '',
             addedDate: event.addedDate,
+          };
+          album.videos.set(event.videoId, video);
+          videoToAlbum.set(event.videoId, event.albumId);
+        }
+        break;
+      }
+      case 'video_file_uploaded': {
+        const album = model.albums.get(event.albumId);
+        if (album) {
+          const video: VideoState = {
+            id: event.videoId,
+            albumId: event.albumId,
+            url: videoStreamUrl(event.videoId),
+            title: event.title,
+            text: '',
+            addedDate: event.uploadDate,
+            file: {
+              originalFilename: event.originalFilename,
+              mimeType: event.mimeType,
+              fileSize: event.fileSize,
+            },
           };
           album.videos.set(event.videoId, video);
           videoToAlbum.set(event.videoId, event.albumId);

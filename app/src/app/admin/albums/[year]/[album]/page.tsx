@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { isUploadedVideoUrl } from '@/lib/video-files';
 
 interface AlbumData {
   albumId: string;
@@ -78,6 +79,7 @@ export default function AlbumContentManager() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
   useEffect(() => {
@@ -459,6 +461,43 @@ export default function AlbumContentManager() {
     }
   };
 
+  // Sends the file as the raw request body so the server can stream it to
+  // disk; multipart would make it buffer the whole video first.
+  const handleUploadVideo = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/mp4,video/webm,video/quicktime,video/ogg,video/x-m4v,.mp4,.webm,.mov,.m4v,.ogv';
+
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setUploadingVideo(true);
+      try {
+        const url = `/api/albums/${params.year}/${params.album}/videos/upload?filename=${encodeURIComponent(file.name)}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+
+        if (response.ok) {
+          setMessage('Video uploaded successfully');
+          fetchAlbum();
+        } else {
+          const data = await response.json().catch(() => ({}));
+          setMessage(data.error || 'Failed to upload video');
+        }
+      } catch (_error) {
+        setMessage('Error uploading video');
+      } finally {
+        setUploadingVideo(false);
+      }
+    };
+
+    input.click();
+  };
+
   const handleUploadPhotos = async () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -597,7 +636,7 @@ export default function AlbumContentManager() {
                 Edit text for photos and videos in this album
               </p>
             </div>
-            <div>
+            <div className="flex items-center space-x-2">
               <button
                 onClick={handleUploadPhotos}
                 disabled={uploadingPhotos}
@@ -607,6 +646,16 @@ export default function AlbumContentManager() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span>{uploadingPhotos ? 'Uploading...' : 'Upload Photos'}</span>
+              </button>
+              <button
+                onClick={handleUploadVideo}
+                disabled={uploadingVideo}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>{uploadingVideo ? 'Uploading video...' : 'Upload Video'}</span>
               </button>
             </div>
           </div>
@@ -806,19 +855,31 @@ export default function AlbumContentManager() {
               {album.metadata.videos.map((video) => {
                 const isYouTube = isYouTubeUrl(video.url);
                 const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                const isUploaded = isUploadedVideoUrl(video.url);
 
                 return (
                   <div key={video.id} className="bg-slate-700 rounded-lg shadow-md overflow-hidden">
-                    {isYouTube && youtubeId ? (
+                    {(isYouTube && youtubeId) || isUploaded ? (
                       <div>
-                        <div className="aspect-video">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${youtubeId}`}
-                            title={video.title}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+                        <div className="aspect-video bg-black">
+                          {isUploaded ? (
+                            <video
+                              src={video.url}
+                              title={video.title}
+                              controls
+                              preload="metadata"
+                              playsInline
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${youtubeId}`}
+                              title={video.title}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          )}
                         </div>
                         <div className="p-4">
                           <div className="mb-2">

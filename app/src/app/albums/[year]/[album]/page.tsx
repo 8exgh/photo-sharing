@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import SiteLogo from '@/components/SiteLogo';
+import { isUploadedVideoUrl } from '@/lib/video-files';
 
 interface PhotoInfo {
   id: string;
@@ -419,22 +420,37 @@ export default function AlbumView() {
               {album.metadata.videos.map((video, index) => {
                 const isYouTube = isYouTubeUrl(video.url);
                 const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                const isUploaded = isUploadedVideoUrl(video.url);
 
                 return (
                   <div
                     key={video.id}
                     className="bg-slate-700 rounded-lg shadow-md overflow-hidden"
                   >
-                    {isYouTube && youtubeId ? (
+                    {(isYouTube && youtubeId) || isUploaded ? (
                       <div>
-                        <div className="aspect-video">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${youtubeId}`}
-                            title={video.title}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+                        <div className="aspect-video bg-black">
+                          {isUploaded ? (
+                            // Streams from our range-capable endpoint: playback
+                            // starts before the download finishes and seeking
+                            // fetches only the needed bytes
+                            <video
+                              src={video.url}
+                              title={video.title}
+                              controls
+                              preload="metadata"
+                              playsInline
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${youtubeId}`}
+                              title={video.title}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          )}
                         </div>
                         <div className="p-4">
                           <h3 className="font-semibold text-slate-100">{video.title}</h3>
@@ -575,18 +591,31 @@ export default function AlbumView() {
                   const video = album.metadata.videos[selectedVideo];
                   const isYouTube = isYouTubeUrl(video.url);
                   const youtubeId = isYouTube ? getYouTubeVideoId(video.url) : null;
+                  const isUploaded = isUploadedVideoUrl(video.url);
 
                   return (
                     <div>
-                      {isYouTube && youtubeId ? (
-                        <div className="aspect-video">
-                          <iframe
-                            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
-                            title={video.title}
-                            className="w-full h-full"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+                      {(isYouTube && youtubeId) || isUploaded ? (
+                        <div className="aspect-video bg-black">
+                          {isUploaded ? (
+                            <video
+                              src={video.url}
+                              title={video.title}
+                              controls
+                              autoPlay
+                              preload="metadata"
+                              playsInline
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <iframe
+                              src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
+                              title={video.title}
+                              className="w-full h-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          )}
                         </div>
                       ) : (
                         <div className="p-8 text-center">

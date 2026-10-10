@@ -1,10 +1,13 @@
 import { randomUUID } from 'crypto';
 import { join } from 'path';
-import { promises as fs } from 'fs';
+import { promises as fs, createWriteStream } from 'fs';
+import { Readable, Transform } from 'stream';
+import { pipeline } from 'stream/promises';
 import sharp from 'sharp';
 import { getDb, initTenantDb, appendEvent } from './eventstore';
 import { buildReadModel } from './projection';
-import { createTenantDir, tenantExists, tenantImagesDir, tenantThumbnailsDir } from './tenants';
+import { createTenantDir, tenantExists, tenantImagesDir, tenantThumbnailsDir, tenantVideosDir } from './tenants';
+import { VIDEO_MIME_EXTENSIONS, maxVideoBytes } from './video-files';
 import { log, logError } from './logger';
 import type {
   AdminPasswordSet,
@@ -27,6 +30,7 @@ import type {
   PhotoMoved,
   PhotoRotated,
   VideoAdded,
+  VideoFileUploaded,
   VideoDeleted,
   VideoMetadataUpdated,
   GroupCreated,
@@ -666,14 +670,89 @@ export function addVideo(tenantId: string, albumId: string, url: string, title: 
   return { videoId };
 }
 
+export function videoFilePath(tenantId: string, videoId: string, mimeType: string): string {
+  return join(tenantVideosDir(tenantId), `${videoId}.${VIDEO_MIME_EXTENSIONS[mimeType] ?? 'bin'}`);
+}
+
+export class VideoTooLargeError extends Error {
+  constructor(readonly limit: number) {
+    super(`Video exceeds the ${limit} byte limit`);
+  }
+}
+
+// Streams an uploaded video straight from the request body to disk — the
+// file never sits in memory — enforcing the size cap as bytes arrive. Writes
+// to a temp name and renames into place so a failed upload leaves nothing
+// behind that the stream route could serve.
+export async function uploadVideoFile(
+  tenantId: string,
+  albumId: string,
+  input: { filename: string; mimeType: string; body: ReadableStream<Uint8Array> }
+): Promise<{ videoId: string; fileSize: number }> {
+  const TAG = 'commands:uploadVideoFile';
+
+  if (!VIDEO_MIME_EXTENSIONS[input.mimeType]) {
+    throw new Error(`Unsupported video type: ${input.mimeType}`);
+  }
+
+  await fs.mkdir(tenantVideosDir(tenantId), { recursive: true });
+
+  const videoId = randomUUID();
+  const finalPath = videoFilePath(tenantId, videoId, input.mimeType);
+  const tempPath = `${finalPath}.uploading`;
+  const limit = maxVideoBytes();
+  let fileSize = 0;
+
+  const sizeGuard = new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      fileSize += chunk.length;
+      if (fileSize > limit) {
+        callback(new VideoTooLargeError(limit));
+        return;
+      }
+      callback(null, chunk);
+    },
+  });
+
+  try {
+    await pipeline(
+      Readable.fromWeb(input.body as import('stream/web').ReadableStream<Uint8Array>),
+      sizeGuard,
+      createWriteStream(tempPath, { flags: 'wx' })
+    );
+    if (fileSize === 0) throw new Error('Empty upload');
+    await fs.rename(tempPath, finalPath);
+  } catch (error) {
+    await fs.unlink(tempPath).catch(() => {});
+    throw error;
+  }
+
+  const event: VideoFileUploaded = {
+    type: 'video_file_uploaded',
+    version: 1,
+    videoId,
+    albumId,
+    originalFilename: input.filename,
+    title: input.filename.replace(/\.[^/.]+$/, '') || 'Video',
+    mimeType: input.mimeType,
+    fileSize,
+    uploadDate: new Date().toISOString(),
+  };
+  appendEvent(tenantId, event.type, event.version, event);
+
+  log(TAG, 'Video file uploaded', { videoId, albumId, fileSize, mimeType: input.mimeType });
+  return { videoId, fileSize };
+}
+
 export function deleteVideo(tenantId: string, videoId: string): boolean {
   const TAG = 'commands:deleteVideo';
   const db = getDb(tenantId);
 
-  return db.transaction(() => {
+  const removed = db.transaction(() => {
     const model = buildReadModel(tenantId);
     for (const album of model.albums.values()) {
-      if (album.videos.has(videoId)) {
+      const video = album.videos.get(videoId);
+      if (video) {
         const event: VideoDeleted = {
           type: 'video_deleted',
           version: 1,
@@ -682,11 +761,21 @@ export function deleteVideo(tenantId: string, videoId: string): boolean {
         };
         appendEvent(tenantId, event.type, event.version, event);
         log(TAG, 'Video deleted', { videoId, albumId: album.id });
-        return true;
+        return video;
       }
     }
-    return false;
+    return null;
   })();
+
+  if (!removed) return false;
+
+  // Uploaded files go after the event, like photos (orphans are harmless)
+  if (removed.file) {
+    fs.unlink(videoFilePath(tenantId, videoId, removed.file.mimeType)).catch(err => {
+      if (err.code !== 'ENOENT') logError(TAG, 'Error deleting video file', err);
+    });
+  }
+  return true;
 }
 
 export function updateVideoMetadata(tenantId: string, videoId: string, updates: {

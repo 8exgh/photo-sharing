@@ -28,6 +28,10 @@ export function tenantThumbnailsDir(tenantId: string): string {
   return join(tenantDir(tenantId), 'thumbnails');
 }
 
+export function tenantVideosDir(tenantId: string): string {
+  return join(tenantDir(tenantId), 'videos');
+}
+
 export function tenantBrandingDir(tenantId: string): string {
   return join(tenantDir(tenantId), 'branding');
 }

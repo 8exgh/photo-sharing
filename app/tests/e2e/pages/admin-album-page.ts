@@ -3,11 +3,16 @@ import type { Locator, Page } from '@playwright/test';
 // Admin view of a single album: /admin/albums/[year]/[album]
 export class AdminAlbumPage {
   readonly uploadPhotosButton: Locator;
+  readonly uploadVideoButton: Locator;
   readonly photoThumbnails: Locator;
+  // <video> players for uploaded (streamed) videos, as opposed to YouTube iframes
+  readonly videoPlayers: Locator;
 
   constructor(readonly page: Page) {
     this.uploadPhotosButton = page.getByRole('button', { name: 'Upload Photos' }).first();
+    this.uploadVideoButton = page.getByRole('button', { name: 'Upload Video' });
     this.photoThumbnails = page.locator('img[src*="/api/thumbnails/"]');
+    this.videoPlayers = page.locator('video[src*="/api/videos/"]');
   }
 
   async goto(year: string, urlName: string) {
@@ -19,6 +24,13 @@ export class AdminAlbumPage {
   async uploadPhoto(file: { name: string; mimeType: string; buffer: Buffer }) {
     const chooserPromise = this.page.waitForEvent('filechooser');
     await this.uploadPhotosButton.click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles([file]);
+  }
+
+  async uploadVideo(file: { name: string; mimeType: string; buffer: Buffer }) {
+    const chooserPromise = this.page.waitForEvent('filechooser');
+    await this.uploadVideoButton.click();
     const chooser = await chooserPromise;
     await chooser.setFiles([file]);
   }

@@ -162,6 +162,21 @@ export interface VideoAdded {
   addedDate: string;
 }
 
+// A video file uploaded to the server (as opposed to a linked YouTube
+// video). The file lives at tenants/<id>/videos/<videoId>.<ext> and streams
+// from /api/videos/<videoId>/stream.
+export interface VideoFileUploaded {
+  type: 'video_file_uploaded';
+  version: 1;
+  videoId: string;
+  albumId: string;
+  originalFilename: string;
+  title: string;
+  mimeType: string;
+  fileSize: number;
+  uploadDate: string;
+}
+
 export interface VideoDeleted {
   type: 'video_deleted';
   version: 1;
@@ -237,6 +252,7 @@ export type DomainEvent =
   | PhotoMoved
   | PhotoRotated
   | VideoAdded
+  | VideoFileUploaded
   | VideoDeleted
   | VideoTextUpdated
   | VideoMetadataUpdated

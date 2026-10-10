@@ -146,6 +146,7 @@ export interface AlbumWithGroupInfo {
     title: string;
     text: string;
     addedDate: string;
+    file?: { originalFilename: string; mimeType: string; fileSize: number };
   }>;
 }
 
@@ -183,6 +184,7 @@ function albumStateToInfo(album: AlbumState): AlbumWithGroupInfo {
       title: v.title,
       text: v.text,
       addedDate: v.addedDate,
+      ...(v.file ? { file: { ...v.file } } : {}),
     })),
   };
 }
