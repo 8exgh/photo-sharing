@@ -1,4 +1,5 @@
 import { listTenantIds, tenantExists } from './tenants';
+import { buildReadModel } from './projection';
 
 // Deployments whose public base URL is one of these hosts run as a
 // single-tenant site: the first account to register claims the whole site and
@@ -14,12 +15,16 @@ export function isSingleTenantSite(baseUrl: string | undefined = process.env.APP
   }
 }
 
-// The tenant that owns a single-tenant site: the only registered tenant, or
-// the first one found if data from a multi-tenant past is present. Null until
-// somebody registers.
+// The tenant that owns a single-tenant site. Normally the only registered
+// tenant. If several exist (data from a multi-tenant past, or an unverified
+// registration that slipped in before the mode was switched on), a verified
+// tenant outranks an unverified one, then the alphabetically first wins so the
+// answer is stable. Null until somebody registers.
 export function singleTenantOwner(): string | null {
   if (!isSingleTenantSite()) return null;
-  return listTenantIds().filter(tenantExists).sort()[0] ?? null;
+  const tenants = listTenantIds().filter(tenantExists).sort();
+  if (tenants.length === 0) return null;
+  return tenants.find((id) => buildReadModel(id).emailVerified) ?? tenants[0];
 }
 
 // Whether /register should accept a brand-new username right now.
