@@ -37,6 +37,11 @@ jobs:
         working-directory: ./app
         run: npx playwright install --with-deps chromium
 
+      # The video-processing specs exercise the real ffmpeg pipeline (the
+      # Docker image gets ffmpeg via apk; the runner image does not ship it)
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
       - name: Build Next.js application
         working-directory: ./app
         run: npm run build
