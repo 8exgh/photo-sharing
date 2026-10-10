@@ -1,7 +1,10 @@
 // Prepares the data directory for an e2e test server before `next start`.
 //
-//   node tests/e2e/seed.mjs fresh   — wipe the data dir (no tenants; used by
-//                                     the registration specs)
+//   node tests/e2e/seed.mjs fresh [dir]
+//                                   — wipe the data dir (no tenants; used by
+//                                     the registration specs). The optional
+//                                     dir name lets several empty servers
+//                                     coexist (default: the mode name)
 //   node tests/e2e/seed.mjs seeded  — wipe, then seed two verified tenants:
 //                                     the main tenant with albums, a group, a
 //                                     video and an access key, plus a second
@@ -28,7 +31,8 @@ if (mode !== 'fresh' && mode !== 'seeded') {
 // <cwd>/data. Each test server is started from .e2e-data/<mode> to isolate
 // its data; seed into the matching directory here.
 const appRoot = join(here, '..', '..');
-const serverCwd = resolve(appRoot, `.e2e-data/${mode}`);
+const dirName = process.argv[3] || mode;
+const serverCwd = resolve(appRoot, `.e2e-data/${dirName}`);
 const dataDir = join(serverCwd, 'data');
 
 rmSync(serverCwd, { recursive: true, force: true });

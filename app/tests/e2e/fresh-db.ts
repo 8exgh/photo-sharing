@@ -7,13 +7,18 @@ import { join } from 'path';
 // background processor's recorded events.
 const FRESH_DATA_DIR = join(__dirname, '..', '..', '.e2e-data', 'fresh', 'data');
 
+// Data dir of another e2e server started from .e2e-data/<name>
+export function e2eDataDir(name: string): string {
+  return join(__dirname, '..', '..', '.e2e-data', name, 'data');
+}
+
 export interface StoredEvent {
   event_type: string;
   payload: Record<string, unknown>;
 }
 
-export function readEvents(username: string): StoredEvent[] {
-  const db = new Database(join(FRESH_DATA_DIR, 'tenants', username, 'events.db'), {
+export function readEvents(username: string, dataDir: string = FRESH_DATA_DIR): StoredEvent[] {
+  const db = new Database(join(dataDir, 'tenants', username, 'events.db'), {
     readonly: true,
   });
   try {
@@ -27,8 +32,8 @@ export function readEvents(username: string): StoredEvent[] {
   }
 }
 
-export function readVerificationToken(username: string): string {
-  const registered = readEvents(username)
+export function readVerificationToken(username: string, dataDir: string = FRESH_DATA_DIR): string {
+  const registered = readEvents(username, dataDir)
     .filter((e) => e.event_type === 'tenant_registered')
     .pop();
   if (!registered) throw new Error(`No tenant_registered event for ${username}`);

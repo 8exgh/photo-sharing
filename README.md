@@ -37,6 +37,8 @@ There is no central database — the filesystem is the tenant registry, and the 
 - `EMAIL_DRY_RUN=1` — log emails instead of sending (local dev and e2e tests)
 - `POLLING_INTERVAL_MS` — processor cadence (default 5000)
 
+**Single-tenant deployments.** When `APP_BASE_URL` points at one of the hosts listed in `src/lib/site-mode.ts` (currently `tiktastik.ca` and `www.tiktastik.ca`), the site runs single-tenant: whoever registers first owns it. Once that first account exists, `/register` shows "Registration is closed", the Register links disappear from the landing and login pages, and the registration API refuses any other username with 403. The owner can still re-register their own username while unverified to get a fresh verification link. Every other base URL stays multi-tenant.
+
 **Migrating a pre-multi-tenant deployment.** Existing single-tenant data must be moved into a named tenant once, after deploying this version:
 
 ```bash
@@ -53,7 +55,7 @@ Playwright end-to-end tests run in CI on every push to `main`, before any of the
 - `tests/e2e/specs/` — the test scenarios
 - `tests/e2e/seed.mjs` — seeds isolated per-tenant SQLite event stores per test server
 
-Two production servers are started from one build: a **seeded** one (two verified tenants with albums, groups, a video, and access keys) and a **fresh** one that exercises self-registration end to end (register → verification link → sign in). Covered features: the private landing page, registration with email verification, the background email processor's query→send→command loop (SMTP mocked via `EMAIL_DRY_RUN`, asserted through the event store, including token supersession on re-registration), admin login/logout, password change, and route protection, access-key gating of `/albums` (valid, invalid, missing, revoked, and legacy unprefixed keys), cross-tenant isolation for both visitor keys and admin sessions, public browsing of years/groups/albums and videos, album/group/access-key administration, and photo upload with server-side resizing into the tenant's own folder.
+Three production servers are started from one build: a **seeded** one (two verified tenants with albums, groups, a video, and access keys), a **fresh** one that exercises self-registration end to end (register → verification link → sign in), and a **single-tenant** one whose `APP_BASE_URL` is `https://tiktastik.ca`, which checks that the first registration claims the site and closes registration behind it. Covered features: the private landing page, registration with email verification, the background email processor's query→send→command loop (SMTP mocked via `EMAIL_DRY_RUN`, asserted through the event store, including token supersession on re-registration), admin login/logout, password change, and route protection, access-key gating of `/albums` (valid, invalid, missing, revoked, and legacy unprefixed keys), cross-tenant isolation for both visitor keys and admin sessions, public browsing of years/groups/albums and videos, album/group/access-key administration, and photo upload with server-side resizing into the tenant's own folder.
 
 Run them locally:
 

@@ -3,11 +3,15 @@ import { defineConfig, devices } from '@playwright/test';
 // Two production servers are started from the same `next build` output:
 //  - seeded (3100): two verified tenants with albums and access keys
 //  - fresh  (3101): empty data dir, exercises self-registration + verification
+//  - single (3102): empty data dir with APP_BASE_URL on a single-tenant host
+//                   (tiktastik.ca), exercises first-registration-wins
 const SEEDED_PORT = 3100;
 const FRESH_PORT = 3101;
+const SINGLE_PORT = 3102;
 
 export const SEEDED_BASE_URL = `http://127.0.0.1:${SEEDED_PORT}`;
 export const FRESH_BASE_URL = `http://127.0.0.1:${FRESH_PORT}`;
+export const SINGLE_BASE_URL = `http://127.0.0.1:${SINGLE_PORT}`;
 
 // SESSION_SECRET must be >=32 chars in production; COOKIE_SECURE=false so the
 // session cookie works over plain http. EMAIL_DRY_RUN logs verification
@@ -35,13 +39,18 @@ export default defineConfig({
   projects: [
     {
       name: 'main',
-      testIgnore: /registration/,
+      testIgnore: /registration|single-tenant/,
       use: { ...devices['Desktop Chrome'], baseURL: SEEDED_BASE_URL },
     },
     {
       name: 'registration',
       testMatch: /registration/,
       use: { ...devices['Desktop Chrome'], baseURL: FRESH_BASE_URL },
+    },
+    {
+      name: 'single-tenant',
+      testMatch: /single-tenant/,
+      use: { ...devices['Desktop Chrome'], baseURL: SINGLE_BASE_URL },
     },
   ],
   // DATA_DIR is inlined at build time by next.config.ts, so the server always
@@ -65,6 +74,15 @@ export default defineConfig({
       // request's own URL is not the public one — emailed links and verify
       // redirects must land on APP_BASE_URL, not the request host.
       env: { ...serverEnv, APP_BASE_URL: `http://localhost:${FRESH_PORT}` },
+    },
+    {
+      command: `node tests/e2e/seed.mjs fresh single && cd .e2e-data/single && npx next start ../.. -p ${SINGLE_PORT}`,
+      url: SINGLE_BASE_URL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      // A public base URL on a single-tenant host flips the site into
+      // first-registration-wins mode (src/lib/site-mode.ts)
+      env: { ...serverEnv, APP_BASE_URL: 'https://tiktastik.ca' },
     },
   ],
 });

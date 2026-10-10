@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { registerTenant } from '@/lib/commands';
 import { hashPassword } from '@/lib/password';
 import { isValidTenantId } from '@/lib/tenants';
+import { isSingleTenantSite, singleTenantOwner } from '@/lib/site-mode';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -36,6 +37,20 @@ export async function POST(request: NextRequest) {
         { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` },
         { status: 400 }
       );
+    }
+
+    // Single-tenant sites: the first registration claims the site. Only that
+    // same username may register again (to get a fresh verification link
+    // while still unverified); everyone else is turned away.
+    if (isSingleTenantSite()) {
+      const owner = singleTenantOwner();
+      if (owner && owner !== username) {
+        log(TAG, 'Registration refused - single-tenant site already claimed', { username, owner });
+        return NextResponse.json(
+          { error: 'This site already has an owner. Registration is closed.' },
+          { status: 403 }
+        );
+      }
     }
 
     const verificationToken = randomBytes(32).toString('hex');

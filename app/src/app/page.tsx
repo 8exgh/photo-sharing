@@ -1,7 +1,13 @@
 import Link from 'next/link';
 import SiteLogo from '@/components/SiteLogo';
+import { registrationOpen } from '@/lib/site-mode';
+
+// Reads the tenant registry per request so a claimed single-tenant site
+// stops advertising registration.
+export const dynamic = 'force-dynamic';
 
 export default function Home() {
+  const showRegister = registrationOpen();
   return (
     <div className="flex-1 bg-slate-800 flex items-center justify-center">
       <div className="max-w-md mx-auto text-center px-4">
@@ -23,12 +29,14 @@ export default function Home() {
           >
             Admin
           </Link>
-          <Link
-            href="/register"
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            Register
-          </Link>
+          {showRegister && (
+            <Link
+              href="/register"
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              Register
+            </Link>
+          )}
         </div>
       </div>
     </div>
