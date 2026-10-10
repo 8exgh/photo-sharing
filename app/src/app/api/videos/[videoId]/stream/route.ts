@@ -3,7 +3,7 @@ import { createReadStream, promises as fs } from 'fs';
 import { Readable } from 'stream';
 import { getSessionFromRequest } from '@/lib/session';
 import { queryVideoById, resolveSessionTenant } from '@/lib/queries';
-import { videoFilePath } from '@/lib/commands';
+import { videoFilePath, videoSourcePath } from '@/lib/video-storage';
 import { logRequest, log, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
@@ -71,7 +71,13 @@ export async function GET(
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
-    const path = videoFilePath(tenantId, videoId, video.file.mimeType);
+    // The processed file once conversion is done; until then (or if it
+    // failed) the original upload streams as-is
+    const ready = video.file.status === 'ready';
+    const path = ready
+      ? videoFilePath(tenantId, videoId, video.file.mimeType)
+      : videoSourcePath(tenantId, videoId, video.file.sourceMimeType);
+    const contentType = ready ? video.file.mimeType : video.file.sourceMimeType;
     let size: number;
     try {
       size = (await fs.stat(path)).size;
@@ -81,7 +87,7 @@ export async function GET(
     }
 
     const headers: Record<string, string> = {
-      'Content-Type': video.file.mimeType,
+      'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
       'Cache-Control': 'private, max-age=3600',
     };

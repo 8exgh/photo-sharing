@@ -39,3 +39,28 @@ export function videoStreamUrl(videoId: string): string {
 export function isUploadedVideoUrl(url: string): boolean {
   return /^\/api\/videos\/[0-9a-f-]{36}\/stream$/i.test(url);
 }
+
+export function videoPosterUrl(videoId: string): string {
+  return `/api/videos/${videoId}/poster`;
+}
+
+export type VideoProcessingStatus = 'pending' | 'ready' | 'failed';
+
+// What the album APIs expose about an uploaded video file. `mimeType` and
+// `fileSize` describe what streams today: the processed file once ready,
+// otherwise the original upload.
+export interface VideoFileInfo {
+  originalFilename: string;
+  sourceMimeType: string;
+  mimeType: string;
+  fileSize: number;
+  status: VideoProcessingStatus;
+  poster: boolean;
+  transcoded?: boolean;
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  videoCodec?: string;
+  audioCodec?: string | null;
+  error?: string;
+}

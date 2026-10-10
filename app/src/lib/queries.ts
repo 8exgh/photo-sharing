@@ -1,4 +1,4 @@
-import { buildReadModel, AlbumState, PhotoState, VideoState } from './projection';
+import { buildReadModel, AlbumState, PhotoState, VideoState, VideoFileInfo } from './projection';
 import { listTenantIds, parseKeyTenant, tenantExists } from './tenants';
 import type { SessionData } from '@/types';
 
@@ -80,6 +80,31 @@ export function queryPendingVerificationEmails(): PendingVerificationEmail[] {
   return pending;
 }
 
+export interface PendingVideoProcessing {
+  tenantId: string;
+  videoId: string;
+  albumId: string;
+  file: VideoFileInfo;
+}
+
+// Uploaded videos the background processor has not yet converted or given up
+// on. Work disappears from here once video_processed / _failed is recorded.
+export function queryPendingVideoProcessing(): PendingVideoProcessing[] {
+  const pending: PendingVideoProcessing[] = [];
+  for (const tenantId of listTenantIds()) {
+    if (!tenantExists(tenantId)) continue;
+    const model = buildReadModel(tenantId);
+    for (const album of model.albums.values()) {
+      for (const video of album.videos.values()) {
+        if (video.file?.status === 'pending') {
+          pending.push({ tenantId, videoId: video.id, albumId: album.id, file: video.file });
+        }
+      }
+    }
+  }
+  return pending;
+}
+
 // --- Session tenant resolution ---
 
 // Tenant for an authenticated session: admins carry it directly, visitors
@@ -146,7 +171,7 @@ export interface AlbumWithGroupInfo {
     title: string;
     text: string;
     addedDate: string;
-    file?: { originalFilename: string; mimeType: string; fileSize: number };
+    file?: VideoFileInfo;
   }>;
 }
 

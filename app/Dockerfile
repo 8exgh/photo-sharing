@@ -32,8 +32,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Install su-exec for dropping privileges
-RUN apk add --no-cache su-exec
+# su-exec for dropping privileges; ffmpeg for converting uploaded videos to
+# browser-ready MP4/WebM and extracting poster frames (src/lib/video-processing.ts)
+RUN apk add --no-cache su-exec ffmpeg
 
 # Set data directory environment variables for volume mounts
 ENV DATA_DIR=/app/data

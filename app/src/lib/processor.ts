@@ -1,4 +1,5 @@
 import { runVerificationEmailJob } from './jobs/verification-emails';
+import { runVideoProcessingJob } from './jobs/video-processing';
 import { log, logError } from './logger';
 
 // In-process background processor, modelled on inventory-shopify's job loop:
@@ -22,6 +23,7 @@ export function startBackgroundProcessor(): void {
   const cycle = async () => {
     try {
       await runVerificationEmailJob();
+      await runVideoProcessingJob();
     } catch (error) {
       logError('Processor', 'Job cycle error', error);
     }

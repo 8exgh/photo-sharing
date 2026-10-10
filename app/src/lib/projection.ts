@@ -1,6 +1,8 @@
 import { getAllEvents } from './eventstore';
 import { DomainEvent } from './events';
-import { videoStreamUrl } from './video-files';
+import { videoStreamUrl, type VideoFileInfo } from './video-files';
+
+export type { VideoFileInfo };
 
 export interface PhotoState {
   id: string;
@@ -12,12 +14,6 @@ export interface PhotoState {
   height: number;
   fileSize: number;
   uploadDate: string;
-}
-
-export interface VideoFileInfo {
-  originalFilename: string;
-  mimeType: string;
-  fileSize: number;
 }
 
 export interface VideoState {
@@ -267,12 +263,44 @@ export function buildReadModel(tenantId: string): ReadModel {
             addedDate: event.uploadDate,
             file: {
               originalFilename: event.originalFilename,
+              sourceMimeType: event.mimeType,
               mimeType: event.mimeType,
               fileSize: event.fileSize,
+              status: 'pending',
+              poster: false,
             },
           };
           album.videos.set(event.videoId, video);
           videoToAlbum.set(event.videoId, event.albumId);
+        }
+        break;
+      }
+      case 'video_processed': {
+        const albumId = videoToAlbum.get(event.videoId);
+        const video = albumId ? model.albums.get(albumId)?.videos.get(event.videoId) : undefined;
+        if (video?.file) {
+          video.file = {
+            ...video.file,
+            status: 'ready',
+            mimeType: event.mimeType,
+            fileSize: event.fileSize,
+            width: event.width,
+            height: event.height,
+            durationSeconds: event.durationSeconds,
+            videoCodec: event.videoCodec,
+            audioCodec: event.audioCodec,
+            transcoded: event.transcoded,
+            poster: event.poster,
+            error: undefined,
+          };
+        }
+        break;
+      }
+      case 'video_processing_failed': {
+        const albumId = videoToAlbum.get(event.videoId);
+        const video = albumId ? model.albums.get(albumId)?.videos.get(event.videoId) : undefined;
+        if (video?.file) {
+          video.file = { ...video.file, status: 'failed', error: event.error };
         }
         break;
       }

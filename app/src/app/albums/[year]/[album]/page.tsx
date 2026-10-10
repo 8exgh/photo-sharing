@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import SiteLogo from '@/components/SiteLogo';
-import { isUploadedVideoUrl } from '@/lib/video-files';
+import { isUploadedVideoUrl, videoPosterUrl, type VideoFileInfo } from '@/lib/video-files';
 
 interface PhotoInfo {
   id: string;
@@ -24,6 +24,7 @@ interface VideoInfo {
   title: string;
   text: string;
   addedDate: string;
+  file?: VideoFileInfo;
 }
 
 interface AlbumData {
@@ -150,6 +151,14 @@ export default function AlbumView() {
       setLoading(false);
     }
   }, [params.year, params.album]);
+
+  // Re-fetch while uploads are being converted so players appear on their own
+  const processing = album?.metadata.videos.some((v) => v.file?.status === 'pending') ?? false;
+  useEffect(() => {
+    if (!processing) return;
+    const timer = setInterval(fetchAlbumOrGroup, 3000);
+    return () => clearInterval(timer);
+  }, [processing, fetchAlbumOrGroup]);
 
   useEffect(() => {
     fetchAlbumOrGroup();
@@ -429,19 +438,38 @@ export default function AlbumView() {
                   >
                     {(isYouTube && youtubeId) || isUploaded ? (
                       <div>
-                        <div className="aspect-video bg-black">
+                        <div className="aspect-video bg-black relative">
+                          {isUploaded && video.file?.status === 'failed' && (
+                            <span className="absolute top-2 left-2 z-10 rounded bg-amber-600/90 px-2 py-0.5 text-xs text-white" title={video.file.error}>
+                              Could not convert for streaming; playing the original file
+                            </span>
+                          )}
                           {isUploaded ? (
                             // Streams from our range-capable endpoint: playback
                             // starts before the download finishes and seeking
                             // fetches only the needed bytes
-                            <video
-                              src={video.url}
-                              title={video.title}
-                              controls
-                              preload="metadata"
-                              playsInline
-                              className="w-full h-full"
-                            />
+                            video.file?.status === 'pending' ? (
+                              <div
+                              data-testid="video-processing"
+                              className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-sm gap-2"
+                            >
+                              <svg className="h-6 w-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                              </svg>
+                              Processing video…
+                            </div>
+                            ) : (
+                              <video
+                                src={video.url}
+                                title={video.title}
+                                poster={video.file?.poster ? videoPosterUrl(video.id) : undefined}
+                                controls
+                                preload="metadata"
+                                playsInline
+                                className="w-full h-full"
+                              />
+                            )
                           ) : (
                             <iframe
                               src={`https://www.youtube.com/embed/${youtubeId}`}
@@ -596,17 +624,36 @@ export default function AlbumView() {
                   return (
                     <div>
                       {(isYouTube && youtubeId) || isUploaded ? (
-                        <div className="aspect-video bg-black">
+                        <div className="aspect-video bg-black relative">
+                          {isUploaded && video.file?.status === 'failed' && (
+                            <span className="absolute top-2 left-2 z-10 rounded bg-amber-600/90 px-2 py-0.5 text-xs text-white" title={video.file.error}>
+                              Could not convert for streaming; playing the original file
+                            </span>
+                          )}
                           {isUploaded ? (
-                            <video
-                              src={video.url}
-                              title={video.title}
-                              controls
-                              autoPlay
-                              preload="metadata"
-                              playsInline
-                              className="w-full h-full"
-                            />
+                            video.file?.status === 'pending' ? (
+                              <div
+                              data-testid="video-processing"
+                              className="w-full h-full flex flex-col items-center justify-center text-slate-300 text-sm gap-2"
+                            >
+                              <svg className="h-6 w-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                              </svg>
+                              Processing video…
+                            </div>
+                            ) : (
+                              <video
+                                src={video.url}
+                                title={video.title}
+                                poster={video.file?.poster ? videoPosterUrl(video.id) : undefined}
+                                controls
+                                autoPlay
+                                preload="metadata"
+                                playsInline
+                                className="w-full h-full"
+                              />
+                            )
                           ) : (
                             <iframe
                               src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}

@@ -8,6 +8,7 @@ import { getDb, initTenantDb, appendEvent } from './eventstore';
 import { buildReadModel } from './projection';
 import { createTenantDir, tenantExists, tenantImagesDir, tenantThumbnailsDir, tenantVideosDir } from './tenants';
 import { VIDEO_MIME_EXTENSIONS, maxVideoBytes } from './video-files';
+import { videoFilePath, videoPosterPath, videoSourcePath } from './video-storage';
 import { log, logError } from './logger';
 import type {
   AdminPasswordSet,
@@ -31,6 +32,8 @@ import type {
   PhotoRotated,
   VideoAdded,
   VideoFileUploaded,
+  VideoProcessed,
+  VideoProcessingFailed,
   VideoDeleted,
   VideoMetadataUpdated,
   GroupCreated,
@@ -670,10 +673,6 @@ export function addVideo(tenantId: string, albumId: string, url: string, title: 
   return { videoId };
 }
 
-export function videoFilePath(tenantId: string, videoId: string, mimeType: string): string {
-  return join(tenantVideosDir(tenantId), `${videoId}.${VIDEO_MIME_EXTENSIONS[mimeType] ?? 'bin'}`);
-}
-
 export class VideoTooLargeError extends Error {
   constructor(readonly limit: number) {
     super(`Video exceeds the ${limit} byte limit`);
@@ -683,7 +682,8 @@ export class VideoTooLargeError extends Error {
 // Streams an uploaded video straight from the request body to disk — the
 // file never sits in memory — enforcing the size cap as bytes arrive. Writes
 // to a temp name and renames into place so a failed upload leaves nothing
-// behind that the stream route could serve.
+// behind that the stream route could serve. The background processor then
+// turns the source into a browser-ready file (see video-processing.ts).
 export async function uploadVideoFile(
   tenantId: string,
   albumId: string,
@@ -698,7 +698,7 @@ export async function uploadVideoFile(
   await fs.mkdir(tenantVideosDir(tenantId), { recursive: true });
 
   const videoId = randomUUID();
-  const finalPath = videoFilePath(tenantId, videoId, input.mimeType);
+  const finalPath = videoSourcePath(tenantId, videoId, input.mimeType);
   const tempPath = `${finalPath}.uploading`;
   const limit = maxVideoBytes();
   let fileSize = 0;
@@ -744,6 +744,34 @@ export async function uploadVideoFile(
   return { videoId, fileSize };
 }
 
+export function markVideoProcessed(
+  tenantId: string,
+  videoId: string,
+  result: Omit<VideoProcessed, 'type' | 'version' | 'videoId' | 'processedDate'>
+): void {
+  const event: VideoProcessed = {
+    type: 'video_processed',
+    version: 1,
+    videoId,
+    ...result,
+    processedDate: new Date().toISOString(),
+  };
+  appendEvent(tenantId, event.type, event.version, event);
+  log('commands:markVideoProcessed', 'Video processed', { tenantId, videoId, mimeType: result.mimeType, transcoded: result.transcoded });
+}
+
+export function markVideoProcessingFailed(tenantId: string, videoId: string, error: string): void {
+  const event: VideoProcessingFailed = {
+    type: 'video_processing_failed',
+    version: 1,
+    videoId,
+    error: error.slice(0, 1000),
+    failedDate: new Date().toISOString(),
+  };
+  appendEvent(tenantId, event.type, event.version, event);
+  log('commands:markVideoProcessingFailed', 'Video processing failed', { tenantId, videoId, error: event.error });
+}
+
 export function deleteVideo(tenantId: string, videoId: string): boolean {
   const TAG = 'commands:deleteVideo';
   const db = getDb(tenantId);
@@ -771,9 +799,16 @@ export function deleteVideo(tenantId: string, videoId: string): boolean {
 
   // Uploaded files go after the event, like photos (orphans are harmless)
   if (removed.file) {
-    fs.unlink(videoFilePath(tenantId, videoId, removed.file.mimeType)).catch(err => {
-      if (err.code !== 'ENOENT') logError(TAG, 'Error deleting video file', err);
-    });
+    const paths = [
+      videoSourcePath(tenantId, videoId, removed.file.sourceMimeType),
+      videoFilePath(tenantId, videoId, removed.file.mimeType),
+      videoPosterPath(tenantId, videoId),
+    ];
+    for (const path of paths) {
+      fs.unlink(path).catch(err => {
+        if (err.code !== 'ENOENT') logError(TAG, 'Error deleting video file', err);
+      });
+    }
   }
   return true;
 }

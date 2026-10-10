@@ -177,6 +177,34 @@ export interface VideoFileUploaded {
   uploadDate: string;
 }
 
+// Recorded by the background processor once the uploaded file has been made
+// browser-ready (remuxed or transcoded to MP4, or kept as WebM) and a poster
+// frame extracted. mimeType/fileSize describe the processed file.
+export interface VideoProcessed {
+  type: 'video_processed';
+  version: 1;
+  videoId: string;
+  mimeType: string;
+  fileSize: number;
+  width: number;
+  height: number;
+  durationSeconds: number;
+  videoCodec: string;
+  audioCodec: string | null;
+  transcoded: boolean;
+  poster: boolean;
+  processedDate: string;
+}
+
+// The processor gave up on this upload; the original keeps streaming as-is.
+export interface VideoProcessingFailed {
+  type: 'video_processing_failed';
+  version: 1;
+  videoId: string;
+  error: string;
+  failedDate: string;
+}
+
 export interface VideoDeleted {
   type: 'video_deleted';
   version: 1;
@@ -253,6 +281,8 @@ export type DomainEvent =
   | PhotoRotated
   | VideoAdded
   | VideoFileUploaded
+  | VideoProcessed
+  | VideoProcessingFailed
   | VideoDeleted
   | VideoTextUpdated
   | VideoMetadataUpdated

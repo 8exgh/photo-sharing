@@ -29,6 +29,14 @@ test.describe('Video upload and streaming', () => {
     expect(videoId).toBeTruthy();
     const streamUrl = `/api/videos/${videoId}/stream`;
 
+    // Random bytes are not a decodable video: the processor records a failure
+    // and the original upload keeps streaming as-is
+    const albumData = await (await page.request.get(`/api/albums/${seed.year}/${album.urlName}`)).json();
+    const info = albumData.metadata.videos.find((v: { id: string }) => v.id === videoId);
+    expect(info.file.status).toBe('failed');
+    expect(info.file.error).toContain('ffprobe failed');
+    expect(info.file.mimeType).toBe('video/mp4');
+
     // Whole file, advertised as range-capable
     const full = await page.request.get(streamUrl);
     expect(full.status()).toBe(200);
@@ -62,7 +70,7 @@ test.describe('Video upload and streaming', () => {
     expect(bad.headers()['content-range']).toBe(`bytes */${bytes.length}`);
 
     // Stored in this tenant's own folder
-    const filePath = join(SEEDED_DATA_DIR, 'tenants', seed.mainTenant.username, 'videos', `${videoId}.mp4`);
+    const filePath = join(SEEDED_DATA_DIR, 'tenants', seed.mainTenant.username, 'videos', `${videoId}.source.mp4`);
     expect(existsSync(filePath)).toBe(true);
 
     // A visitor holding this tenant's key sees the player and can stream
