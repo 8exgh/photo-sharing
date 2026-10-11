@@ -1,5 +1,6 @@
 import { runVerificationEmailJob } from './jobs/verification-emails';
 import { runVideoProcessingJob } from './jobs/video-processing';
+import { cleanupStaleUploads, uploadSessionTtlMs } from './video-uploads';
 import { log, logError } from './logger';
 
 // In-process background processor, modelled on inventory-shopify's job loop:
@@ -34,8 +35,15 @@ export function startBackgroundProcessor(): void {
   started = true;
 
   const intervalMs = getPollingIntervalMs();
-  log('Processor', 'Background processor starting', { intervalMs, jobs: ['verification-emails', 'video-processing'] });
+  // Abandoned chunked uploads are swept far less often than the other jobs run
+  const cleanupIntervalMs = parseInt(process.env.UPLOAD_CLEANUP_INTERVAL_MS || String(15 * 60 * 1000), 10);
+  log('Processor', 'Background processor starting', {
+    intervalMs,
+    cleanupIntervalMs,
+    jobs: ['verification-emails', 'video-processing', 'stale-uploads'],
+  });
 
   startJobLoop('verification-emails', runVerificationEmailJob, intervalMs);
   startJobLoop('video-processing', runVideoProcessingJob, intervalMs);
+  startJobLoop('stale-uploads', async () => { await cleanupStaleUploads(uploadSessionTtlMs()); }, cleanupIntervalMs);
 }

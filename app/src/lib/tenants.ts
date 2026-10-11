@@ -32,6 +32,11 @@ export function tenantVideosDir(tenantId: string): string {
   return join(tenantDir(tenantId), 'videos');
 }
 
+// In-progress chunked uploads (not domain data; safe to clear)
+export function tenantUploadsDir(tenantId: string): string {
+  return join(tenantDir(tenantId), 'uploads');
+}
+
 export function tenantBrandingDir(tenantId: string): string {
   return join(tenantDir(tenantId), 'branding');
 }

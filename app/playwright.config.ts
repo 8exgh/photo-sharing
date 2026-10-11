@@ -22,6 +22,10 @@ const serverEnv = {
   EMAIL_DRY_RUN: '1',
   // Fast background-processor cycles so the email-processor specs don't wait
   POLLING_INTERVAL_MS: '1000',
+  // Tiny chunks so the small video fixtures upload in several pieces, and a
+  // fast stale-upload sweep so its spec can observe it
+  VIDEO_CHUNK_BYTES: '32768',
+  UPLOAD_CLEANUP_INTERVAL_MS: '1000',
 };
 
 export default defineConfig({

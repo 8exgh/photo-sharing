@@ -15,19 +15,19 @@ test.describe('Video upload and streaming', () => {
     await loginAsAdmin(page);
     await adminAlbumPage.goto(seed.year, album.urlName);
     await expect(adminAlbumPage.uploadVideoButton).toBeVisible();
-    const before = await adminAlbumPage.videoPlayers.count();
 
-    // The server never inspects the container, so any bytes stand in for a clip
+    // The server never inspects the container, so any bytes stand in for a clip.
+    // The id comes from this upload's own completion, since other specs add
+    // videos to the same album in parallel.
     const bytes = randomBytes(64 * 1024);
+    const completed = page.waitForResponse((r) => /\/api\/video-uploads\/[^/]+\/complete$/.test(r.url()));
     await adminAlbumPage.uploadVideo({ name: 'playwright-clip.mp4', mimeType: 'video/mp4', buffer: bytes });
-
-    await expect(adminAlbumPage.videoPlayers).toHaveCount(before + 1, { timeout: 20_000 });
-    await expect(page.getByRole('heading', { name: 'playwright-clip' })).toBeVisible();
-
-    const src = await adminAlbumPage.videoPlayers.last().getAttribute('src');
-    const videoId = src?.match(/\/api\/videos\/([^/]+)\/stream/)?.[1];
+    const { videoId } = await (await completed).json();
     expect(videoId).toBeTruthy();
     const streamUrl = `/api/videos/${videoId}/stream`;
+
+    await expect(page.locator(`video[src="${streamUrl}"]`)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'playwright-clip' }).first()).toBeVisible();
 
     // Random bytes are not a decodable video: the processor records a failure
     // and the original upload keeps streaming as-is

@@ -25,6 +25,16 @@ export function resolveVideoMimeType(contentType: string | null, filename: strin
 // Upper bound on one uploaded video; override with MAX_VIDEO_BYTES.
 export const DEFAULT_MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024; // 2 GiB
 
+// Size of each piece of a chunked upload. Must stay well under the 100 MB
+// request-body cap Cloudflare enforces on Free and Pro plans. Override with
+// VIDEO_CHUNK_BYTES (the e2e tests use tiny chunks).
+export const DEFAULT_VIDEO_CHUNK_BYTES = 16 * 1024 * 1024; // 16 MiB
+
+export function videoChunkBytes(): number {
+  const raw = Number(process.env.VIDEO_CHUNK_BYTES);
+  return Number.isFinite(raw) && raw >= 1024 ? Math.floor(raw) : DEFAULT_VIDEO_CHUNK_BYTES;
+}
+
 export function maxVideoBytes(): number {
   const raw = Number(process.env.MAX_VIDEO_BYTES);
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_MAX_VIDEO_BYTES;

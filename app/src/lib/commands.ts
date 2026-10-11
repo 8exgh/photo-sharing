@@ -698,8 +698,7 @@ export async function uploadVideoFile(
   await fs.mkdir(tenantVideosDir(tenantId), { recursive: true });
 
   const videoId = randomUUID();
-  const finalPath = videoSourcePath(tenantId, videoId, input.mimeType);
-  const tempPath = `${finalPath}.uploading`;
+  const tempPath = `${videoSourcePath(tenantId, videoId, input.mimeType)}.uploading`;
   const limit = maxVideoBytes();
   let fileSize = 0;
 
@@ -721,11 +720,37 @@ export async function uploadVideoFile(
       createWriteStream(tempPath, { flags: 'wx' })
     );
     if (fileSize === 0) throw new Error('Empty upload');
-    await fs.rename(tempPath, finalPath);
   } catch (error) {
     await fs.unlink(tempPath).catch(() => {});
     throw error;
   }
+
+  await registerVideoFile(tenantId, albumId, {
+    videoId,
+    filename: input.filename,
+    mimeType: input.mimeType,
+    fileSize,
+    fromPath: tempPath,
+  });
+  log(TAG, 'Video file uploaded', { videoId, albumId, fileSize, mimeType: input.mimeType });
+  return { videoId, fileSize };
+}
+
+// Moves a fully received upload into place as the video's source file and
+// records it. Used by both the single-request and the chunked upload paths;
+// from here the background processor takes over.
+export async function registerVideoFile(
+  tenantId: string,
+  albumId: string,
+  input: { videoId?: string; filename: string; mimeType: string; fileSize: number; fromPath: string }
+): Promise<{ videoId: string }> {
+  if (!VIDEO_MIME_EXTENSIONS[input.mimeType]) {
+    throw new Error(`Unsupported video type: ${input.mimeType}`);
+  }
+  await fs.mkdir(tenantVideosDir(tenantId), { recursive: true });
+
+  const videoId = input.videoId ?? randomUUID();
+  await fs.rename(input.fromPath, videoSourcePath(tenantId, videoId, input.mimeType));
 
   const event: VideoFileUploaded = {
     type: 'video_file_uploaded',
@@ -735,13 +760,11 @@ export async function uploadVideoFile(
     originalFilename: input.filename,
     title: input.filename.replace(/\.[^/.]+$/, '') || 'Video',
     mimeType: input.mimeType,
-    fileSize,
+    fileSize: input.fileSize,
     uploadDate: new Date().toISOString(),
   };
   appendEvent(tenantId, event.type, event.version, event);
-
-  log(TAG, 'Video file uploaded', { videoId, albumId, fileSize, mimeType: input.mimeType });
-  return { videoId, fileSize };
+  return { videoId };
 }
 
 export function markVideoProcessed(

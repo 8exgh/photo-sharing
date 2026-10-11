@@ -1,10 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { isUploadedVideoUrl, videoPosterUrl, type VideoFileInfo } from '@/lib/video-files';
+import {
+  cancelChunkedUpload,
+  formatBytes,
+  uploadVideoInChunks,
+  UploadCancelled,
+  type UploadProgress,
+} from '@/lib/chunked-upload';
 
 interface AlbumData {
   albumId: string;
@@ -81,6 +88,19 @@ export default function AlbumContentManager() {
   const [message, setMessage] = useState('');
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoProgress, setVideoProgress] = useState<UploadProgress | null>(null);
+  const videoUploadRef = useRef<{ controller: AbortController; file: File; uploadId: string | null } | null>(null);
+
+  // Leaving mid-upload would stop it (it can be resumed, but warn anyway)
+  useEffect(() => {
+    if (!uploadingVideo) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [uploadingVideo]);
 
   // Auto-dismiss message based on length (4 seconds base + 1 second per 10 characters after 15)
   useEffect(() => {
@@ -470,8 +490,9 @@ export default function AlbumContentManager() {
     }
   };
 
-  // Sends the file as the raw request body so the server can stream it to
-  // disk; multipart would make it buffer the whole video first.
+  // Uploads in pieces small enough to pass Cloudflare's 100 MB request cap,
+  // with live progress, automatic retries, and resume when the same file is
+  // picked again after an interruption (see src/lib/chunked-upload.ts).
   const handleUploadVideo = async () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -481,34 +502,42 @@ export default function AlbumContentManager() {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
+      const controller = new AbortController();
+      videoUploadRef.current = { controller, file, uploadId: null };
       setUploadingVideo(true);
       try {
-        const url = `/api/albums/${params.year}/${params.album}/videos/upload?filename=${encodeURIComponent(file.name)}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': file.type || 'application/octet-stream' },
-          body: file,
+        await uploadVideoInChunks({
+          year: String(params.year),
+          album: String(params.album),
+          file,
+          signal: controller.signal,
+          onProgress: setVideoProgress,
+          onSession: (uploadId) => {
+            if (videoUploadRef.current) videoUploadRef.current.uploadId = uploadId;
+          },
         });
-
-        if (response.ok) {
-          setMessage('Video uploaded successfully');
-          fetchAlbum();
-        } else if (response.status === 413) {
-          // Either our own size cap or the proxy in front of the site (Cloudflare
-          // rejects bodies over 100 MB with an HTML page, not our JSON)
-          setMessage('That video is too large to upload here. Try a shorter or smaller file.');
-        } else {
-          const data = await response.json().catch(() => ({}));
-          setMessage(data.error || 'Failed to upload video');
+        setMessage('Video uploaded successfully');
+        fetchAlbum();
+      } catch (error) {
+        if (!(error instanceof UploadCancelled)) {
+          setMessage(error instanceof Error ? error.message : 'Error uploading video');
         }
-      } catch (_error) {
-        setMessage('Error uploading video');
       } finally {
+        videoUploadRef.current = null;
+        setVideoProgress(null);
         setUploadingVideo(false);
       }
     };
 
     input.click();
+  };
+
+  const handleCancelVideoUpload = async () => {
+    const current = videoUploadRef.current;
+    if (!current) return;
+    current.controller.abort();
+    await cancelChunkedUpload(String(params.year), String(params.album), current.file, current.uploadId);
+    setMessage('Video upload cancelled');
   };
 
   const handleUploadPhotos = async () => {
@@ -673,6 +702,44 @@ export default function AlbumContentManager() {
             </div>
           </div>
         </div>
+
+        {videoProgress && (
+          <div
+            role="status"
+            data-testid="video-upload-progress"
+            className="mb-6 rounded-lg border border-slate-600 bg-slate-700 p-4"
+          >
+            <div className="flex items-center justify-between gap-4 text-sm text-slate-200">
+              <span className="truncate">
+                {videoProgress.phase === 'starting' && `Preparing ${videoProgress.filename}…`}
+                {videoProgress.phase === 'finishing' && `Finishing upload of ${videoProgress.filename}…`}
+                {(videoProgress.phase === 'uploading' || videoProgress.phase === 'retrying') &&
+                  `Uploading ${videoProgress.filename}: ${formatBytes(videoProgress.sent)} of ${formatBytes(videoProgress.total)} (${Math.floor((videoProgress.sent / videoProgress.total) * 100)}%)`}
+              </span>
+              <button
+                onClick={handleCancelVideoUpload}
+                disabled={videoProgress.phase === 'finishing'}
+                className="shrink-0 text-red-300 hover:text-red-200 disabled:opacity-50"
+              >
+                Cancel upload
+              </button>
+            </div>
+            <div className="mt-2 h-2 w-full overflow-hidden rounded bg-slate-600">
+              <div
+                className="h-full bg-indigo-500 transition-[width] duration-200"
+                style={{ width: `${Math.min(100, (videoProgress.sent / Math.max(1, videoProgress.total)) * 100)}%` }}
+              />
+            </div>
+            {videoProgress.resumedFrom !== null && (
+              <p className="mt-2 text-xs text-slate-400">
+                Resumed {videoProgress.filename} from {Math.floor((videoProgress.resumedFrom / videoProgress.total) * 100)}%
+              </p>
+            )}
+            {videoProgress.phase === 'retrying' && (
+              <p className="mt-2 text-xs text-amber-300">Connection interrupted, retrying…</p>
+            )}
+          </div>
+        )}
 
         {message && (
           <div className={`fixed top-0 left-0 right-0 z-50 shadow-lg ${
