@@ -493,6 +493,10 @@ export default function AlbumContentManager() {
         if (response.ok) {
           setMessage('Video uploaded successfully');
           fetchAlbum();
+        } else if (response.status === 413) {
+          // Either our own size cap or the proxy in front of the site (Cloudflare
+          // rejects bodies over 100 MB with an HTML page, not our JSON)
+          setMessage('That video is too large to upload here. Try a shorter or smaller file.');
         } else {
           const data = await response.json().catch(() => ({}));
           setMessage(data.error || 'Failed to upload video');

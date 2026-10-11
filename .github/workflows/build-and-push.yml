@@ -140,6 +140,16 @@ jobs:
             https://api.github.com/repos/${{ github.repository_owner }}/devops/dispatches \
             -d '{"event_type":"deploy-${{ github.event.repository.name }}"}'
 
+      # Public, open-registration instance on Server16 (photos-prod.fusenv.com).
+      # The commit lets the deploy verify /api/build-info serves this exact build.
+      - name: Trigger public Photos deployment (Server16)
+        run: |
+          curl -f -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository_owner }}/devops/dispatches \
+            -d '{"event_type":"photos-prod-deploy","client_payload":{"commit":"${{ github.sha }}"}}'
+
       - name: Trigger Bennett Photos deployment
         run: |
           curl -f -X POST \

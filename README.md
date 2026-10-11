@@ -20,6 +20,13 @@ Software is required to resize large imagines down to display resolution (ie. Ma
  
 Storage of the uploaded content would likely be placed somewhere such as AWS or Azure, mostly as cost and capacity considerations.
 
+## Deployments
+
+- **Public, open registration:** https://photos-prod.fusenv.com on Server16, via the devops workflow `deploy-photos-prod.yml` (dispatched by CI as `photos-prod-deploy`).
+- **Tik only, single-tenant:** https://tiktastik.ca and https://ovh-photos.fusenv.com on the OVH VPS, via `deploy-tik_tycholaz-ovh.yml` (dispatched as `deploy-photo-sharing`).
+
+Both run the same `ghcr.io/8exgh/photo-sharing-app` image; `APP_BASE_URL` decides the mode.
+
 ## Multi-tenancy
 
 The site is multi-tenant: anyone can register their own private album site at `/register`. Each tenant is fully isolated on disk under `data/tenants/<username>/`:
@@ -49,7 +56,7 @@ This moves `data/events.db`, `data/images/`, `data/thumbnails/`, and `data/brand
 
 ## Video uploads and streaming
 
-Albums hold two kinds of video: linked YouTube videos (added by URL) and uploaded video files. Admins upload a file from the album page with the **Upload Video** button. Accepted types are MP4, WebM, MOV, M4V, and OGV, up to `MAX_VIDEO_BYTES` (default 2 GiB). The browser sends the file as the raw request body to `/api/albums/<year>/<album>/videos/upload?filename=...`, and the server streams it straight to `data/tenants/<username>/videos/<videoId>.<ext>` without holding it in memory, enforcing the size cap as bytes arrive.
+Albums hold two kinds of video: linked YouTube videos (added by URL) and uploaded video files. Admins upload a file from the album page with the **Upload Video** button. Accepted types are MP4, WebM, MOV, M4V, and OGV, up to `MAX_VIDEO_BYTES` (default 2 GiB). Deployments behind Cloudflare are further capped at 100 MB per request by Cloudflare itself; the admin page reports a too-large error in either case. The browser sends the file as the raw request body to `/api/albums/<year>/<album>/videos/upload?filename=...`, and the server streams it straight to `data/tenants/<username>/videos/<videoId>.<ext>` without holding it in memory, enforcing the size cap as bytes arrive.
 
 **Processing.** The upload lands as `<videoId>.source.<ext>` and the in-process background processor converts it with ffmpeg in its own job loop, so a long transcode never delays verification emails: WebM with VP8/VP9/AV1 is kept as-is, H.264/AAC MP4 or MOV is remuxed with `+faststart` so the index sits at the front, and anything else is transcoded to H.264/AAC MP4 (capped at 1920px wide). A poster frame from 10% in (max 10s) is saved as `<videoId>.poster.jpg` and served from `/api/videos/<videoId>/poster`. Outcomes are recorded as `video_processed` or `video_processing_failed` events; the album APIs expose `file.status` (`pending`, `ready`, `failed`) plus codec, dimensions and duration. While pending, the pages show a "Processing video…" placeholder and poll until the player appears. If conversion fails, the original upload keeps streaming with a notice. ffmpeg comes from the Docker image (`apk add ffmpeg`); locally, point `FFMPEG_PATH` (and optionally `FFPROBE_PATH`) at a binary.
 
