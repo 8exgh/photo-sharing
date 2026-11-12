@@ -2,7 +2,7 @@ import { expect, test, uniqueUsername } from '../fixtures';
 import { e2eDataDir, readVerificationToken } from '../fresh-db';
 
 // Runs against the "single" server: an empty data dir whose APP_BASE_URL is
-// https://tiktastik.ca, one of the single-tenant hosts in src/lib/site-mode.ts.
+// https://tikpix.ca, one of the single-tenant hosts in src/lib/site-mode.ts.
 // The first registration claims the site; everyone after it is turned away.
 // The tests share one server's state, so they run in order.
 test.describe.configure({ mode: 'serial' });
@@ -62,14 +62,14 @@ test.describe('Single-tenant site (first registration wins)', () => {
     });
     expect(again.ok()).toBeTruthy();
 
-    // The emailed link redirects to APP_BASE_URL (tiktastik.ca), which this
+    // The emailed link redirects to APP_BASE_URL (tikpix.ca), which this
     // test box cannot reach, so hit the verify endpoint without following
     const token = readVerificationToken(owner, SINGLE_DATA_DIR);
     const verify = await page.request.get(`/api/auth/verify?username=${owner}&token=${token}`, {
       maxRedirects: 0,
     });
     expect(verify.status()).toBe(307);
-    expect(verify.headers()['location']).toBe('https://tiktastik.ca/admin/login?verified=1');
+    expect(verify.headers()['location']).toBe('https://tikpix.ca/admin/login?verified=1');
 
     await adminLoginPage.goto();
     await adminLoginPage.login(owner, ownerPassword);

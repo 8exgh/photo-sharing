@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
 //  - seeded (3100): two verified tenants with albums and access keys
 //  - fresh  (3101): empty data dir, exercises self-registration + verification
 //  - single (3102): empty data dir with APP_BASE_URL on a single-tenant host
-//                   (tiktastik.ca), exercises first-registration-wins
+//                   (tikpix.ca), exercises first-registration-wins
 const SEEDED_PORT = 3100;
 const FRESH_PORT = 3101;
 const SINGLE_PORT = 3102;
@@ -86,7 +86,7 @@ export default defineConfig({
       timeout: 120_000,
       // A public base URL on a single-tenant host flips the site into
       // first-registration-wins mode (src/lib/site-mode.ts)
-      env: { ...serverEnv, APP_BASE_URL: 'https://tiktastik.ca' },
+      env: { ...serverEnv, APP_BASE_URL: 'https://tikpix.ca' },
     },
   ],
 });

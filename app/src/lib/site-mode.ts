@@ -4,7 +4,9 @@ import { buildReadModel } from './projection';
 // Deployments whose public base URL is one of these hosts run as a
 // single-tenant site: the first account to register claims the whole site and
 // registration closes behind it. Every other deployment stays multi-tenant.
-export const SINGLE_TENANT_HOSTS = ['tiktastik.ca', 'www.tiktastik.ca'];
+// tikpix.ca is Tik's domain. tiktastik.ca was the earlier choice and stays
+// listed so a deployment still configured with it does not reopen registration.
+export const SINGLE_TENANT_HOSTS = ['tikpix.ca', 'www.tikpix.ca', 'tiktastik.ca', 'www.tiktastik.ca'];
 
 export function isSingleTenantSite(baseUrl: string | undefined = process.env.APP_BASE_URL): boolean {
   if (!baseUrl) return false;
